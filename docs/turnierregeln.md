@@ -12,9 +12,23 @@ Stand: 14.11.2026. Diese Datei hält fest, was für die Turnier-App entschieden 
 
 ## Ablauf eines Turniertags
 
+- Schweizer System: Alle Spieler spielen gleich viele Runden, niemand scheidet vorher aus.
 - Runde 1: Die Tische werden zufällig gelost.
-- Weitere Vorrunden: Spieler mit ähnlichem Punktestand sitzen zusammen (Schweizer System), Wiederholungen werden möglichst vermieden.
-- Standard sind drei Vorrunden, danach ein Finaltisch der vier Punktbesten.
+- Ab Runde 2: Spieler mit ähnlichem Punktestand sitzen zusammen, Wiederholungen werden möglichst vermieden.
+- Die Rundenzahl richtet sich nach der Teilnehmerzahl wie in einem üblichen Turnier 1 gegen 1. Dafür zählt jeder Tisch als eine Paarung, also wie zwei Spieler:
+
+| Tische | Spieler (bei Vierertischen) | Runden |
+|---|---|---|
+| 1 | 4 | 1 |
+| 2 | 6 bis 8 | 2 |
+| 3 bis 4 | 9 bis 16 | 3 |
+| 5 bis 8 | 17 bis 32 | 4 |
+| 9 bis 16 | 33 bis 64 | 5 |
+| 17 bis 32 | 65 bis 128 | 6 |
+
+- Bei 60 Teilnehmern sind das 15 Tische und 5 Runden.
+- Die Turnierleitung kann die Rundenzahl von Hand festlegen.
+- Ein zusätzlicher Finaltisch der vier Punktbesten ist möglich, aber standardmäßig aus, weil diese vier dann eine Runde mehr spielen.
 - Geht die Teilnehmerzahl nicht durch vier auf, gibt es einzelne Dreiertische.
 - Rangliste bei Punktgleichheit: erst Anzahl der Siege, dann Punkte der bisherigen Gegner.
 

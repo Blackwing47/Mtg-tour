@@ -106,13 +106,16 @@ tr.cut td{border-bottom:2px solid var(--ink)}
   var sheet = null;
 
   function fresh(){
-    return {v:1, phase:'setup', namesText:'', rounds:3, final:true, players:[], roundsData:[], cur:0,
+    return {v:1, phase:'setup', namesText:'', rounds:3, auto:true, final:false, players:[], roundsData:[], cur:0,
       tab:'tables', timer:{endsAt:null, remaining:ROUND_MS}, err:''};
   }
   function load(){
     try{
       var s = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if(s && s.v === 1 && Array.isArray(s.players) && Array.isArray(s.roundsData)) return s;
+      if(s && s.v === 1 && Array.isArray(s.players) && Array.isArray(s.roundsData)){
+        if(s.auto === undefined){ s.auto = true; if(s.phase === 'setup') s.final = false; }
+        return s;
+      }
     }catch(e){}
     return null;
   }
@@ -137,6 +140,12 @@ tr.cut td{border-bottom:2px solid var(--ink)}
     var t = Math.ceil(n/4), threes = 4*t - n, a = [];
     for(var i=0;i<t;i++) a.push(i < t - threes ? 4 : 3);
     return a;
+  }
+  /* Rundenzahl wie im Schweizer System für 1 gegen 1: Jeder Tisch zählt als eine Paarung, also wie zwei Spieler. */
+  function autoRounds(n){
+    var t = tableSizes(n).length, r = 1;
+    while((1 << r) < 2 * t) r++;
+    return r;
   }
   function totals(){
     var T = S.players.map(function(){ return {pts:0, wins:0, games:0, opps:[], oppPts:0}; });
@@ -210,18 +219,25 @@ tr.cut td{border-bottom:2px solid var(--ink)}
   /* ---------- Darstellung ---------- */
   function viewSetup(){
     var n = parseNames().length;
-    var seg = [2,3,4,5].map(function(k){
-      return '<button data-a="rounds" data-v="' + k + '" aria-pressed="' + (S.rounds === k) + '">' + k + '</button>';
+    var seg = '<button data-a="rounds" data-v="auto" aria-pressed="' + (!!S.auto) + '" style="font-size:17px">Auto</button>' + [3,4,5,6,7].map(function(k){
+      return '<button data-a="rounds" data-v="' + k + '" aria-pressed="' + (!S.auto && S.rounds === k) + '">' + k + '</button>';
     }).join('');
     return '<main class="page"><h1>Turnierleitung</h1>' +
       '<p class="lead">Teilnehmer eintragen, Pods auslosen, Tischergebnisse sammeln. Ein Name pro Zeile.</p>' +
       '<textarea data-names aria-label="Teilnehmer, ein Name pro Zeile" placeholder="Anna\nBen\nCem\n…">' + esc(S.namesText) + '</textarea>' +
       '<p class="hint" id="count">' + countText(n) + '</p>' +
       '<button class="ghost" data-a="fill">60 Testspieler eintragen</button>' +
-      '<h2>Vorrunden</h2><div class="seg">' + seg + '</div>' +
-      '<button class="toggle" data-a="final" aria-pressed="' + S.final + '"><span>Finaltisch der vier Punktbesten</span><i></i></button>' +
+      '<h2>Runden</h2><div class="seg">' + seg + '</div>' +
+      '<p class="hint" id="rinfo">' + roundText(n) + '</p>' +
+      '<button class="toggle" data-a="final" aria-pressed="' + S.final + '"><span>Zusätzlicher Finaltisch<br><span class="hint">Die vier Punktbesten spielen eine Runde mehr als alle anderen.</span></span><i></i></button>' +
       (S.err ? '<p class="err">' + esc(S.err) + '</p>' : '') +
       '<button class="primary" data-a="begin">Runde 1 auslosen</button></main>';
+  }
+  function roundText(n){
+    var ok = n >= 4 && n !== 5;
+    if(S.auto) return ok ? 'Automatisch: ' + autoRounds(n) + (autoRounds(n) === 1 ? ' Runde' : ' Runden') + ' bei ' + tableSizes(n).length + (tableSizes(n).length === 1 ? ' Tisch' : ' Tischen') + '. Alle spielen gleich viele Runden.'
+      : 'Die Rundenzahl richtet sich nach der Anzahl der Tische.';
+    return 'Fest eingestellt: ' + S.rounds + ' Runden' + (ok ? ', automatisch wären es ' + autoRounds(n) : '') + '.';
   }
   function countText(n){
     if(!n) return 'Noch keine Teilnehmer eingetragen.';
@@ -335,6 +351,7 @@ tr.cut td{border-bottom:2px solid var(--ink)}
     if(t && t.hasAttribute && t.hasAttribute('data-names')){
       S.namesText = t.value; save();
       var c = document.getElementById('count'); if(c) c.textContent = countText(parseNames().length);
+      var ri = document.getElementById('rinfo'); if(ri) ri.textContent = roundText(parseNames().length);
     }
   });
   app.addEventListener('click', function(e){
@@ -346,12 +363,13 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       case 'fill':
         var list = []; for(var i=1;i<=60;i++) list.push('Spieler ' + (i < 10 ? '0' : '') + i);
         S.namesText = list.join('\n'); S.err = ''; break;
-      case 'rounds': S.rounds = +v; break;
+      case 'rounds': if(v === 'auto'){ S.auto = true; }else{ S.auto = false; S.rounds = +v; } break;
       case 'final': S.final = !S.final; break;
       case 'begin':
         var names = parseNames();
         if(names.length < 4 || names.length === 5){ S.err = 'Es braucht 4 oder mindestens 6 Teilnehmer.'; break; }
         S.err = ''; S.players = names; S.roundsData = []; S.phase = 'run';
+        if(S.auto) S.rounds = autoRounds(names.length);
         makeRound('vor'); break;
       case 'tab': S.tab = v; break;
       case 'timer':
@@ -376,7 +394,7 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       case 'nextround': makeRound(nextKind()); break;
       case 'reset':
         var keep = S.namesText, rr = S.rounds, ff = S.final;
-        S = fresh(); S.namesText = keep; S.rounds = rr; S.final = ff; sheet = null; break;
+        var aa = S.auto; S = fresh(); S.namesText = keep; S.rounds = rr; S.final = ff; S.auto = aa; sheet = null; break;
       case 'sheet': sheet = {type:v}; break;
       case 'close': sheet = null; break;
     }
