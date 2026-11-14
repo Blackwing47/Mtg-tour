@@ -7,6 +7,7 @@ Web-App für eine Commander-Turnierserie: vier Spieler pro Tisch, sechs Turniere
 - `index.html`: Startseite mit Links zu den Prototypen.
 - `prototyp/pod-zaehler.html`: Zähler für einen Tisch (Lebenspunkte, Zähler, Commander-Schaden mit Partnern, Zusatzrunde, Zeitlimit, Ergebnis).
 - `prototyp/turnierleitung.html`: Auslosung, Tischmeldungen, Rundentimer und Rangliste.
+- `prototyp/decks.html`: Decklisten einfügen und prüfen, Sammlung einlesen, Decks für den Zähler bereitstellen.
 - `docs/turnierregeln.md`: alle entschiedenen Regeln und Vorgaben. Diese Datei ist die Grundlage für den Code.
 
 ## Stand

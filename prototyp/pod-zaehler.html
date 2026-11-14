@@ -355,6 +355,15 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
       render();
     }).catch(function(){});
   }
+  function savedDecks(){
+    try{
+      var d = JSON.parse(localStorage.getItem('mtg-tour-decks-v1') || 'null');
+      if(d && Array.isArray(d.decks)) return d.decks.map(function(x){
+        return {name:x.name, cmd:(x.cards || []).filter(function(c){ return c.c; }).slice(0, 2)};
+      }).filter(function(x){ return x.cmd.length; });
+    }catch(e){}
+    return [];
+  }
   function cmdExtra(i, c){
     var a = S.art[i][c];
     if(a && okUrl(a.url)){
@@ -479,7 +488,8 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
       '<input class="cmdin" type="text" maxlength="40" autocomplete="off" data-cmd="' + i + '" value="' + esc(S.cmds[i] || '') + '" placeholder="Commander" aria-label="Commander, Platz ' + SEATS[i] + '">' + cmdExtra(i, 0) +
       (S.partner[i] ? '<input class="cmdin" type="text" maxlength="40" autocomplete="off" data-cmd2="' + i + '" value="' + esc(S.cmds2[i] || '') + '" placeholder="Zweiter Commander" aria-label="Zweiter Commander, Platz ' + SEATS[i] + '">' + cmdExtra(i, 1) : '') +
       '<div class="picks"><button class="pick" data-a="starter" data-i="' + i + '" aria-pressed="' + on + '">' + (on ? 'Beginnt' : 'Soll beginnen') + '</button>' +
-      '<button class="pick" data-a="partner" data-i="' + i + '" aria-pressed="' + (S.partner[i] ? 'true' : 'false') + '">Partner</button></div></div>';
+      '<button class="pick" data-a="partner" data-i="' + i + '" aria-pressed="' + (S.partner[i] ? 'true' : 'false') + '">Partner</button>' +
+      '<button class="pick" data-a="decks" data-i="' + i + '">Deck wählen</button></div></div>';
   }
   function viewSetup(){
     var lifeOpts = [20,25,30,40].map(function(n){
@@ -667,6 +677,13 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         sheet.list.map(function(a, k){
           return '<button data-a="pickart" data-k="' + k + '"><img loading="lazy" src="' + esc(a.url) + '" alt=""><span>' + esc(a.set) + (a.year ? ' (' + a.year + ')' : '') + '<small>' + esc(a.artist) + '</small></span></button>';
         }).join('') + '</div><p class="hint">© Wizards of the Coast, Bilder über Scryfall.</p>';
+    }else if(sheet.type === 'decks'){
+      var dl = savedDecks();
+      body = '<div class="shead"><h2>Deck wählen</h2>' + close + '</div>' +
+        (dl.length ? dl.map(function(x, k){
+          return '<button class="ghost" data-a="usedeck" data-k="' + k + '">' + esc(x.name) + '</button>';
+        }).join('') : '<p>Auf diesem Gerät ist noch kein Deck mit Commander gespeichert.</p>') +
+        '<a class="ghost" href="decks.html" style="display:grid;place-items:center;text-decoration:none;color:inherit">Decks verwalten</a>';
     }else if(sheet.type === 'ko'){
       var ki = sheet.i;
       body = '<div class="shead"><h2>' + nameOf(ki) + ' scheidet aus?</h2>' + close + '</div><div class="cols">' +
@@ -783,6 +800,16 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     var p = (S.players && i >= 0) ? S.players[i] : null;
 
     switch(a){
+      case 'decks': sheet = {type:'decks', si:i}; break;
+      case 'usedeck':
+        var ud = savedDecks()[+b.getAttribute('data-k')], us = sheet ? sheet.si : -1;
+        if(ud && us >= 0){
+          var front = function(n){ return String(n).split(' // ')[0]; };
+          S.cmds[us] = front(ud.cmd[0].name); S.art[us][0] = ud.cmd[0].a || null;
+          S.partner[us] = ud.cmd.length > 1;
+          S.cmds2[us] = ud.cmd[1] ? front(ud.cmd[1].name) : ''; S.art[us][1] = ud.cmd[1] ? (ud.cmd[1].a || null) : null;
+        }
+        sheet = null; break;
       case 'pickcmd':
         var pc = +b.getAttribute('data-c'), item = (sugCache[i + '-' + pc] || [])[+b.getAttribute('data-k')];
         if(!item) break;

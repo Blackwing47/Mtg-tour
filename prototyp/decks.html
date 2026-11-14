@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Decks und Sammlung</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ecebf2; --surface:#ffffff; --ink:#1d1b2b; --muted:#5f5c73; --line:#cfcbdd;
+  --danger:#b8241c; --on-ink:#ffffff; --ok:#1c6b2c; --warn-bg:#f7e3b5; --warn-ink:#4a3605; --ok-bg:#d2ecd1; --ok-ink:#173f1c;
+  --ui:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#16141f; --surface:#232031; --ink:#efedf7; --muted:#a6a2bd; --line:#3a364e;
+    --danger:#ff7a6e; --on-ink:#16141f; --ok:#8fd69b; --warn-bg:#4b3b0e; --warn-ink:#ffeebd; --ok-bg:#1c4023; --ok-ink:#d9f5d9;
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+h1,h2,h3,p,ul{margin:0}
+ul{padding:0;list-style:none}
+.page{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top,0px)) 16px 40px;display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--num);font-weight:700;font-size:40px;line-height:1}
+h2{font-size:18px;font-weight:600}
+h3{font-size:14px;font-weight:600;color:var(--muted);margin-top:6px}
+.lead,.hint{color:var(--muted)}
+.hint{font-size:14px}
+.err{color:var(--danger);font-weight:500}
+.back{align-self:flex-start;color:var(--muted);font-weight:500;padding:6px 0}
+a{color:inherit}
+textarea,input.txt{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;width:100%}
+textarea{min-height:200px;resize:vertical;font-size:14px}
+.primary{background:var(--ink);color:var(--on-ink);border-radius:16px;min-height:54px;font-weight:600;font-size:18px;width:100%;padding:0 14px}
+.primary:disabled{opacity:.5}
+.ghost{border:1.5px solid var(--line);background:var(--surface);border-radius:16px;min-height:48px;font-weight:500;width:100%;padding:0 14px;display:grid;place-items:center;text-align:center;cursor:pointer}
+.ghost.warn{color:var(--danger)}
+.card{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.card img,.card .noart{width:76px;height:56px;border-radius:10px;object-fit:cover;flex:none;background:var(--line)}
+.card b{display:block;font-size:17px}
+.card span{min-width:0;flex:1}
+.card small{display:block;color:var(--muted);font-size:13px}
+.dots{display:inline-flex;gap:4px;vertical-align:middle;margin-right:6px}
+.dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.35)}
+.cW{background:#f4ecc8}.cU{background:#3b82c4}.cB{background:#3a3340}.cR{background:#d04a35}.cG{background:#2f8f55}.cC{background:#b8b4c4}
+.cmdrow{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.cmdrow img{width:96px;height:70px;border-radius:10px;object-fit:cover;flex:none}
+.cmdrow span{flex:1;min-width:0}
+.cmdrow small{display:block;color:var(--muted);font-size:13px}
+.mini{border:1.5px solid var(--line);border-radius:10px;height:40px;padding:0 12px;background:var(--bg);font-weight:500;flex:none}
+.checks li{display:flex;gap:8px;align-items:flex-start;border-radius:12px;padding:8px 10px;margin-bottom:6px;font-size:15px}
+.checks .ok{background:var(--ok-bg);color:var(--ok-ink)}
+.checks .no{background:var(--warn-bg);color:var(--warn-ink)}
+.checks b{flex:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.stat b{display:block;font-family:var(--num);font-size:26px;line-height:1.1}
+.stat span{font-size:13px;color:var(--muted)}
+.list li{display:flex;gap:10px;padding:6px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.list li i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--muted);min-width:22px;text-align:right}
+.list li em{font-style:normal;color:var(--muted);margin-left:auto;font-size:13px;white-space:nowrap}
+.overlay{position:fixed;inset:0;background:rgba(10,8,20,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:22px 22px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.shead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.shead h2{font-family:var(--num);font-size:28px;font-weight:700}
+.icon{width:44px;height:44px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-size:20px;flex:none}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:12px}
+.opt[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.artgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.artgrid button{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-align:left;font-size:13px;line-height:1.2}
+.artgrid img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.artgrid span{display:block;padding:6px 8px}
+.artgrid small{display:block;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+  'use strict';
+  var KEY = 'mtg-tour-decks-v1';
+  var API = 'https://api.scryfall.com';
+  var app = document.getElementById('app');
+  var V = {view:'list', id:null, text:'', name:'', busy:'', err:'', q:''};
+  var sheet = null;
+
+  function load(){
+    try{
+      var d = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if(d && d.v === 1 && Array.isArray(d.decks)) return d;
+    }catch(e){}
+    return null;
+  }
+  var D = load() || {v:1, decks:[], coll:null};
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(D)); return true; }catch(e){ return false; }
+  }
+  function esc(t){
+    return String(t).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function low(s){ return String(s || '').trim().toLowerCase(); }
+  function front(s){ return String(s || '').split(' // ')[0]; }
+  function okUrl(u){ return typeof u === 'string' && u.indexOf('https://cards.scryfall.io/') === 0; }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function deckById(id){ return D.decks.filter(function(d){ return String(d.id) === String(id); })[0] || null; }
+
+  /* ---------- Listen lesen ---------- */
+  function secOf(h){
+    h = h.replace(/\s*\(\d+\)\s*$/, '').replace(/[:\s]+$/, '');
+    if(/^commanders?$/.test(h)) return 'cmdr';
+    if(/^(deck|main|mainboard|maindeck|main deck)$/.test(h)) return 'main';
+    if(/^(sideboard|side|maybeboard|maybe|considering|companion|tokens?|about)$/.test(h)) return 'side';
+    if(/^(creatures?|lands?|artifacts?|enchantments?|instants?|sorcer(y|ies)|planeswalkers?|battles?|spells?)$/.test(h)) return 'main';
+    return '';
+  }
+  function parseText(text){
+    var out = [], section = 'main';
+    String(text).split(/\r?\n/).forEach(function(raw){
+      var line = raw.trim();
+      if(!line){ if(section === 'cmdr') section = 'main'; return; }
+      if(/^(\/\/|#)/.test(line)){ var hs = secOf(low(line.replace(/^(\/\/|#)+\s*/, ''))); if(hs) section = hs; return; }
+      var side = /^SB:/i.test(line);
+      var m = line.match(/^(?:SB:\s*)?(\d+)\s*x?\s+(.+)$/i);
+      if(!m){ var s = secOf(low(line)); if(s) section = s; return; }
+      var rest = m[2], cmdr = section === 'cmdr', skip = side || section === 'side';
+      rest = rest.replace(/\s*\^[^^]*\^\s*$/, '');
+      var cat = rest.match(/\s*\[([^\]]*)\]\s*$/);
+      if(cat){
+        rest = rest.slice(0, cat.index);
+        var c = low(cat[1]);
+        if(c.indexOf('commander') >= 0) cmdr = true;
+        if(/maybeboard|sideboard|considering/.test(c)) skip = true;
+      }
+      rest = rest.replace(/\s*\*[A-Za-z]+\*\s*$/, '');
+      var set = '', cn = '';
+      var pr = rest.match(/\s+\(([A-Za-z0-9_]{2,8})\)(?:\s+(\S+))?\s*$/);
+      if(pr){ set = pr[1]; cn = pr[2] || ''; rest = rest.slice(0, pr.index); }
+      var name = rest.trim();
+      if(!name || skip) return;
+      out.push({q:+m[1], name:name, set:set, cn:cn, id:'', cmdr:cmdr});
+    });
+    return out;
+  }
+  function parseCSV(text){
+    var rows = [], row = [], cur = '', inq = false, s = String(text);
+    for(var i = 0; i < s.length; i++){
+      var ch = s[i];
+      if(inq){
+        if(ch === '"'){ if(s[i+1] === '"'){ cur += '"'; i++; } else inq = false; }
+        else cur += ch;
+      }else if(ch === '"') inq = true;
+      else if(ch === ','){ row.push(cur); cur = ''; }
+      else if(ch === '\n' || ch === '\r'){
+        if(ch === '\r' && s[i+1] === '\n') i++;
+        row.push(cur); cur = ''; if(row.length > 1 || row[0] !== '') rows.push(row); row = [];
+      }else cur += ch;
+    }
+    row.push(cur); if(row.length > 1 || row[0] !== '') rows.push(row);
+    return rows;
+  }
+  function col(header, names){
+    for(var i = 0; i < header.length; i++){ if(names.indexOf(low(header[i])) >= 0) return i; }
+    return -1;
+  }
+  function isCSV(text){
+    var first = String(text).split(/\r?\n/)[0] || '';
+    return first.indexOf(',') >= 0 && col(parseCSV(first)[0] || [], ['name','card name','card']) >= 0;
+  }
+  function csvEntries(text){
+    var rows = parseCSV(text), hd = rows[0] || [];
+    var cName = col(hd, ['name','card name','card']), cQty = col(hd, ['quantity','count','qty','amount']);
+    var cSet = col(hd, ['set code','edition','edition code','set']), cCn = col(hd, ['collector number','card number','collector_number']);
+    var cId = col(hd, ['scryfall id','scryfall_id']);
+    var out = [];
+    rows.slice(1).forEach(function(r){
+      var name = (r[cName] || '').trim(); if(!name) return;
+      var q = cQty >= 0 ? parseInt(r[cQty], 10) : 1; if(!(q > 0)) q = 1;
+      out.push({q:q, name:name, set:cSet >= 0 ? (r[cSet] || '').trim() : '', cn:cCn >= 0 ? (r[cCn] || '').trim() : '', id:cId >= 0 ? (r[cId] || '').trim() : '', cmdr:false});
+    });
+    return out;
+  }
+
+  /* ---------- Scryfall ---------- */
+  function otext(card){
+    return card.oracle_text || (card.card_faces || []).map(function(f){ return f.oracle_text || ''; }).join('\n');
+  }
+  function cardArt(card){
+    var u = card.image_uris || (card.card_faces && card.card_faces[0] && card.card_faces[0].image_uris) || null;
+    return {url:u ? u.art_crop : '', artist:card.artist || (card.card_faces && card.card_faces[0] && card.card_faces[0].artist) || '',
+      set:card.set_name || '', year:(card.released_at || '').slice(0,4), oracle:card.oracle_id || '', en:card.name || '', label:card.name || ''};
+  }
+  function ident(e, lvl){
+    if(lvl === 0 && e.id) return {id:e.id};
+    if(lvl === 0 && e.set && e.cn) return {set:low(e.set), collector_number:e.cn};
+    return {name:front(e.name)};
+  }
+  function identKey(o){
+    if(o.id) return 'id:' + o.id;
+    if(o.set) return 'sc:' + o.set + '/' + low(o.collector_number);
+    return 'n:' + low(o.name);
+  }
+  async function postCollection(identifiers){
+    var r = await fetch(API + '/cards/collection', {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify({identifiers:identifiers})});
+    if(!r.ok) throw new Error('scryfall ' + r.status);
+    return r.json();
+  }
+  async function resolveAll(entries, progress){
+    var cards = entries.map(function(){ return null; });
+    async function pass(idxs, lvl){
+      for(var a = 0; a < idxs.length; a += 75){
+        var part = idxs.slice(a, a + 75);
+        var res = await postCollection(part.map(function(i){ return ident(entries[i], lvl); }));
+        var map = {};
+        (res.data || []).forEach(function(c){
+          map['id:' + c.id] = c; map['sc:' + c.set + '/' + low(c.collector_number)] = c;
+          map['n:' + low(c.name)] = c; map['n:' + low(front(c.name))] = c;
+          (c.card_faces || []).forEach(function(f){ if(f.name && !map['n:' + low(f.name)]) map['n:' + low(f.name)] = c; });
+        });
+        part.forEach(function(i){ var c = map[identKey(ident(entries[i], lvl))]; if(c) cards[i] = c; });
+        progress(cards.filter(Boolean).length, entries.length);
+        await wait(110);
+      }
+    }
+    var all = entries.map(function(_, i){ return i; });
+    await pass(all, 0);
+    var miss = all.filter(function(i){ return !cards[i] && (entries[i].id || (entries[i].set && entries[i].cn)); });
+    if(miss.length) await pass(miss, 1);
+    var left = all.filter(function(i){ return !cards[i]; }).slice(0, 12);
+    for(var k = 0; k < left.length; k++){
+      try{
+        var r = await fetch(API + '/cards/named?fuzzy=' + encodeURIComponent(front(entries[left[k]].name)), {headers:{'Accept':'application/json'}});
+        if(r.ok) cards[left[k]] = await r.json();
+      }catch(e){}
+      await wait(110);
+    }
+    return cards;
+  }
+  function buildDeck(entries, cards, name){
+    var byOid = {}, order = [], miss = [];
+    entries.forEach(function(e, i){
+      var c = cards[i];
+      if(!c){ miss.push(e.q + ' ' + e.name); return; }
+      var t = c.type_line || '', ot = otext(c);
+      var x = byOid[c.oracle_id];
+      if(!x){
+        x = byOid[c.oracle_id] = {q:0, name:c.name, oid:c.oracle_id, ci:(c.color_identity || []).join(''), t:t, cmc:c.cmc || 0,
+          lg:(c.legalities || {}).commander || '', any:/A deck can have any number of cards named/i.test(ot)};
+        if((/Legendary/.test(t) && /Creature/.test(t)) || /can be your commander/i.test(ot) || /Background/.test(t)){ x.cc = 1; x.a = cardArt(c); }
+        order.push(x);
+      }
+      x.q += e.q;
+      if(e.cmdr){ x.c = 1; x.a = cardArt(c); }
+    });
+    var cmd = order.filter(function(x){ return x.c; });
+    if(!name) name = cmd.length ? cmd.map(function(x){ return front(x.name); }).join(' und ') : 'Deck ' + (D.decks.length + 1);
+    return {id:Date.now(), name:name, t:Date.now(), cards:order, miss:miss};
+  }
+  function cmds(deck){ return deck.cards.filter(function(x){ return x.c; }); }
+
+  /* ---------- Prüfungen und Zahlen ---------- */
+  var COLORS = {W:'Weiß', U:'Blau', B:'Schwarz', R:'Rot', G:'Grün'};
+  function identity(deck){
+    var s = ''; cmds(deck).forEach(function(x){ s += x.ci; });
+    return 'WUBRG'.split('').filter(function(l){ return s.indexOf(l) >= 0; }).join('');
+  }
+  function dots(ci){
+    var ls = ci ? ci.split('') : ['C'];
+    return '<span class="dots" aria-hidden="true">' + ls.map(function(l){ return '<i class="dot c' + l + '"></i>'; }).join('') + '</span>';
+  }
+  function colorNames(ci){ return ci ? ci.split('').map(function(l){ return COLORS[l]; }).join(', ') : 'Farblos'; }
+  function total(deck){ return deck.cards.reduce(function(s, x){ return s + x.q; }, 0); }
+  function some(list){ return list.slice(0, 5).map(function(x){ return front(x.name); }).join(', ') + (list.length > 5 ? ' und ' + (list.length - 5) + ' weitere' : ''); }
+  function checks(deck){
+    var out = [], n = total(deck), cm = cmds(deck), id = identity(deck);
+    out.push({ok:n === 100, text:n === 100 ? 'Genau 100 Karten einschließlich Commander.' : n + ' Karten statt 100.'});
+    if(!cm.length) out.push({ok:false, text:'Noch kein Commander gewählt.'});
+    else if(cm.length > 2) out.push({ok:false, text:cm.length + ' Commander markiert, erlaubt sind höchstens zwei.'});
+    else out.push({ok:true, text:'Commander: ' + cm.map(function(x){ return front(x.name); }).join(' und ') + '.'});
+    if(cm.length){
+      var off = deck.cards.filter(function(x){ return x.ci.split('').some(function(l){ return id.indexOf(l) < 0; }); });
+      out.push({ok:!off.length, text:off.length ? off.length + (off.length === 1 ? ' Karte' : ' Karten') + ' außerhalb der Farbidentität: ' + some(off) + '.' : 'Alle Karten passen zur Farbidentität.'});
+    }
+    var dup = deck.cards.filter(function(x){ return x.q > 1 && !/Basic/.test(x.t) && !x.any; });
+    out.push({ok:!dup.length, text:dup.length ? 'Mehrfach enthalten: ' + some(dup) + '.' : 'Jede Karte nur einmal, Standardländer ausgenommen.'});
+    var ban = deck.cards.filter(function(x){ return x.lg === 'banned'; }), nl = deck.cards.filter(function(x){ return x.lg === 'not_legal'; });
+    if(ban.length) out.push({ok:false, text:'Im Commander verboten: ' + some(ban) + '.'});
+    if(nl.length) out.push({ok:false, text:'Im Commander nicht spielbar: ' + some(nl) + '.'});
+    if(!ban.length && !nl.length) out.push({ok:true, text:'Keine verbotenen Karten.'});
+    if(deck.miss.length) out.push({ok:false, text:deck.miss.length + (deck.miss.length === 1 ? ' Zeile' : ' Zeilen') + ' nicht erkannt: ' + deck.miss.slice(0, 5).map(function(m){ return m.replace(/^\d+\s+/, ''); }).join(', ') + (deck.miss.length > 5 ? ' und weitere' : '') + '.'});
+    return out;
+  }
+  var GROUPS = [['Commander', null], ['Kreaturen', /Creature/], ['Planeswalker', /Planeswalker/], ['Spontanzauber', /Instant/], ['Hexereien', /Sorcery/],
+    ['Artefakte', /Artifact/], ['Verzauberungen', /Enchantment/], ['Länder', /Land/], ['Sonstige', /./]];
+  function groupOf(x){
+    if(x.c) return 0;
+    var t = front(x.t);
+    if(/Land/.test(t)) return 7;
+    for(var g = 1; g < GROUPS.length; g++){ if(GROUPS[g][1].test(t)) return g; }
+    return 8;
+  }
+  function collMap(){
+    var m = {}; if(D.coll) D.coll.rows.forEach(function(r){ m[low(front(r.n))] = r.q; });
+    return m;
+  }
+
+  /* ---------- Ansichten ---------- */
+  function deckCard(d){
+    var cm = cmds(d), art = cm[0] && cm[0].a && okUrl(cm[0].a.url) ? cm[0].a.url : '';
+    var bad = checks(d).filter(function(c){ return !c.ok; }).length;
+    return '<button class="card" data-a="open" data-id="' + d.id + '">' +
+      (art ? '<img src="' + esc(art) + '" alt="">' : '<i class="noart"></i>') +
+      '<span><b>' + esc(d.name) + '</b><small>' + dots(identity(d)) + (cm.length ? esc(cm.map(function(x){ return front(x.name); }).join(' und ')) : 'Kein Commander gewählt') + '</small>' +
+      '<small>' + total(d) + ' Karten, ' + (bad ? bad + (bad === 1 ? ' Hinweis' : ' Hinweise') : 'alles in Ordnung') + '</small></span></button>';
+  }
+  function viewList(){
+    return '<main class="page"><a class="back" href="../index.html">Zur Startseite</a><h1>Decks und Sammlung</h1>' +
+      '<p class="lead">Deine Decks für die Tour. Füge eine Liste aus Moxfield, Archidekt, ManaBox oder einer anderen App ein.</p>' +
+      (D.decks.length ? D.decks.map(deckCard).join('') : '<p class="hint">Noch kein Deck gespeichert.</p>') +
+      '<button class="primary" data-a="go" data-v="import">Deck hinzufügen</button>' +
+      '<h2>Sammlung</h2>' +
+      (D.coll ? '<button class="card" data-a="go" data-v="coll"><span><b>' + D.coll.total + ' Karten</b><small>' + D.coll.rows.length + ' verschiedene, eingelesen am ' + new Date(D.coll.t).toLocaleDateString('de-DE') + '</small></span></button>'
+        : '<p class="hint">Noch keine Sammlung eingelesen.</p>') +
+      '<label class="ghost">' + (D.coll ? 'Sammlung neu einlesen (CSV-Datei)' : 'Sammlung einlesen (CSV-Datei)') + '<input type="file" accept=".csv,text/csv,text/plain" hidden data-collfile></label>' +
+      (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '') +
+      '<p class="hint">Alles wird nur auf diesem Gerät gespeichert. Kartendaten und Bilder kommen von Scryfall. © Wizards of the Coast.</p></main>';
+  }
+  function viewImport(){
+    return '<main class="page"><button class="back" data-a="go" data-v="list">Zurück</button><h1>Deck hinzufügen</h1>' +
+      '<p class="lead">Exportiere dein Deck in der anderen App als Text und füge es hier ein. Eine Zeile pro Karte, zum Beispiel „1 Sol Ring“.</p>' +
+      '<input class="txt" type="text" maxlength="40" data-deckname value="' + esc(V.name) + '" placeholder="Name des Decks (optional)" aria-label="Name des Decks">' +
+      '<textarea data-decktext aria-label="Deckliste" placeholder="Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring\n1 Command Tower\n…">' + esc(V.text) + '</textarea>' +
+      '<label class="ghost">Datei wählen (Text oder CSV)<input type="file" accept=".txt,.csv,.dek,text/plain,text/csv" hidden data-deckfile></label>' +
+      (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '') +
+      (V.busy ? '<p role="status">' + esc(V.busy) + '</p>' : '') +
+      '<button class="primary" data-a="import"' + (V.busy ? ' disabled' : '') + '>Liste prüfen und speichern</button>' +
+      '<h3>So kommst du an die Liste</h3>' +
+      '<p class="hint">Moxfield, Archidekt, ManaBox und die meisten anderen Apps haben im Deck eine Funktion zum Exportieren oder Teilen. Wähle dort das Textformat und kopiere die Liste.</p>' +
+      '<p class="hint">Enthält die Liste Edition und Kartennummer, übernimmt die App genau diese Version und damit auch das Bild deines Commanders.</p></main>';
+  }
+  function viewDeck(){
+    var d = deckById(V.id); if(!d){ V.view = 'list'; return viewList(); }
+    var cm = cmds(d), id = identity(d), cl = collMap();
+    var lands = 0, nonland = 0, cmcSum = 0;
+    d.cards.forEach(function(x){ if(/Land/.test(front(x.t))) lands += x.q; else { nonland += x.q; cmcSum += x.cmc * x.q; } });
+    var h = '<main class="page"><button class="back" data-a="go" data-v="list">Zurück zu den Decks</button>' +
+      '<input class="txt" type="text" maxlength="40" data-rename value="' + esc(d.name) + '" aria-label="Name des Decks" style="font-family:var(--num);font-weight:700;font-size:28px">';
+    cm.forEach(function(x, k){
+      var a = x.a || {};
+      h += '<div class="cmdrow">' + (okUrl(a.url) ? '<img src="' + esc(a.url) + '" alt="">' : '') +
+        '<span><b>' + esc(x.name) + '</b><small>' + (a.artist ? 'Illustration: ' + esc(a.artist) : '') + '</small><small>' + esc(a.set || '') + '</small></span>' +
+        '<button class="mini" data-a="arts" data-k="' + k + '">Bild</button></div>';
+    });
+    h += '<button class="ghost" data-a="sheet" data-v="cmdpick">' + (cm.length ? 'Commander ändern' : 'Commander wählen') + '</button>' +
+      '<p>' + dots(id) + colorNames(cm.length ? id : '') + '</p>' +
+      '<div class="stats"><div class="stat"><b>' + total(d) + '</b><span>Karten</span></div><div class="stat"><b>' + lands + '</b><span>Länder</span></div>' +
+      '<div class="stat"><b>' + (nonland ? (cmcSum / nonland).toFixed(1).replace('.', ',') : '0') + '</b><span>Manawert im Schnitt</span></div></div>' +
+      '<h2>Prüfung</h2><ul class="checks">' + checks(d).map(function(c){
+        return '<li class="' + (c.ok ? 'ok' : 'no') + '"><b>' + (c.ok ? 'OK' : 'Achtung') + '</b><span>' + esc(c.text) + '</span></li>';
+      }).join('') + '</ul>';
+    if(D.coll){
+      var have = 0; d.cards.forEach(function(x){ if(cl[low(front(x.name))]) have++; });
+      h += '<p class="hint">' + have + ' von ' + d.cards.length + ' verschiedenen Karten stehen in deiner Sammlung.</p>';
+    }
+    h += '<h2>Karten</h2>';
+    GROUPS.forEach(function(g, gi){
+      var list = d.cards.filter(function(x){ return groupOf(x) === gi; }).sort(function(a, b){ return a.name.localeCompare(b.name); });
+      if(!list.length) return;
+      h += '<h3>' + g[0] + ' (' + list.reduce(function(s, x){ return s + x.q; }, 0) + ')</h3><ul class="list">' + list.map(function(x){
+        return '<li><i>' + x.q + '</i><span>' + esc(x.name) + '</span>' + (D.coll && !cl[low(front(x.name))] ? '<em>nicht in Sammlung</em>' : '') + '</li>';
+      }).join('') + '</ul>';
+    });
+    return h + '<button class="ghost warn" data-a="sheet" data-v="del">Deck löschen</button>' +
+      '<p class="hint">Bilder über Scryfall. © Wizards of the Coast.</p></main>';
+  }
+  function collRows(q){
+    q = low(q);
+    var rows = D.coll.rows.filter(function(r){ return !q || low(r.n).indexOf(q) >= 0; });
+    return (rows.length ? '<ul class="list">' + rows.slice(0, 60).map(function(r){ return '<li><i>' + r.q + '</i><span>' + esc(r.n) + '</span></li>'; }).join('') + '</ul>' : '<p class="hint">Keine Karte gefunden.</p>') +
+      (rows.length > 60 ? '<p class="hint">' + (rows.length - 60) + ' weitere Treffer. Grenze die Suche ein.</p>' : '');
+  }
+  function viewColl(){
+    if(!D.coll){ V.view = 'list'; return viewList(); }
+    return '<main class="page"><button class="back" data-a="go" data-v="list">Zurück</button><h1>Sammlung</h1>' +
+      '<p class="lead">' + D.coll.total + ' Karten, ' + D.coll.rows.length + ' verschiedene.</p>' +
+      '<input class="txt" type="search" data-collq value="' + esc(V.q) + '" placeholder="Karte suchen" aria-label="Karte in der Sammlung suchen">' +
+      '<div id="collrows">' + collRows(V.q) + '</div>' +
+      '<button class="ghost warn" data-a="sheet" data-v="delcoll">Sammlung löschen</button></main>';
+  }
+  function viewSheet(){
+    if(!sheet) return '';
+    var close = '<button class="icon" data-a="close" aria-label="Schließen">×</button>', body = '', d = deckById(V.id);
+    if(sheet.type === 'cmdpick' && d){
+      var cand = d.cards.filter(function(x){ return x.cc || x.c; });
+      body = '<div class="shead"><h2>Commander wählen</h2>' + close + '</div>' +
+        '<p class="hint">Höchstens zwei, zum Beispiel bei Partnern oder Commander mit Hintergrund.</p>' +
+        (cand.length ? cand.map(function(x){
+          return '<button class="opt" data-a="togglecmd" data-oid="' + esc(x.oid) + '" aria-pressed="' + (sheet.sel.indexOf(x.oid) >= 0) + '"><span>' + esc(x.name) + '</span><span>' + esc(colorNames(x.ci)) + '</span></button>';
+        }).join('') : '<p>In dieser Liste steht keine Karte, die Commander sein kann.</p>') +
+        (sheet.err ? '<p class="err">' + esc(sheet.err) + '</p>' : '') +
+        '<button class="primary" data-a="applycmd">Übernehmen</button>';
+    }else if(sheet.type === 'art'){
+      body = '<div class="shead"><h2>Bild wählen</h2>' + close + '</div><div class="artgrid">' + sheet.list.map(function(a, k){
+        return '<button data-a="pickart" data-k="' + k + '"><img loading="lazy" src="' + esc(a.url) + '" alt=""><span>' + esc(a.set) + (a.year ? ' (' + a.year + ')' : '') + '<small>' + esc(a.artist) + '</small></span></button>';
+      }).join('') + '</div><p class="hint">© Wizards of the Coast, Bilder über Scryfall.</p>';
+    }else if(sheet.type === 'del' && d){
+      body = '<div class="shead"><h2>Deck löschen?</h2>' + close + '</div><p>' + esc(d.name) + ' wird von diesem Gerät entfernt.</p>' +
+        '<button class="primary" data-a="deldeck">Deck löschen</button><button class="ghost" data-a="close">Behalten</button>';
+    }else if(sheet.type === 'delcoll'){
+      body = '<div class="shead"><h2>Sammlung löschen?</h2>' + close + '</div><p>Die eingelesene Sammlung wird von diesem Gerät entfernt. Deine Decks bleiben erhalten.</p>' +
+        '<button class="primary" data-a="delcoll">Sammlung löschen</button><button class="ghost" data-a="close">Behalten</button>';
+    }
+    return '<div class="overlay"><div class="sheet" role="dialog" aria-modal="true">' + body + '</div></div>';
+  }
+  function render(){
+    var html = V.view === 'import' ? viewImport() : V.view === 'deck' ? viewDeck() : V.view === 'coll' ? viewColl() : viewList();
+    app.innerHTML = html + viewSheet();
+  }
+
+  /* ---------- Abläufe ---------- */
+  async function runImport(){
+    var text = V.text.trim();
+    if(!text){ V.err = 'Füge zuerst eine Deckliste ein.'; render(); return; }
+    var entries = isCSV(text) ? csvEntries(text) : parseText(text);
+    if(!entries.length){ V.err = 'In diesem Text wurde keine Kartenzeile erkannt. Jede Zeile braucht Anzahl und Kartenname.'; render(); return; }
+    V.err = ''; V.busy = 'Karten werden bei Scryfall nachgeschlagen …'; render();
+    try{
+      var cards = await resolveAll(entries, function(done, all){
+        V.busy = done + ' von ' + all + ' Zeilen erkannt …'; var el = app.querySelector('[role="status"]'); if(el) el.textContent = V.busy;
+      });
+      var deck = buildDeck(entries, cards, V.name.trim());
+      if(!deck.cards.length){ V.busy = ''; V.err = 'Scryfall hat keine der Karten erkannt. Die Liste sollte englische Kartennamen enthalten.'; render(); return; }
+      D.decks.push(deck);
+      if(!save()){ D.decks.pop(); V.busy = ''; V.err = 'Der Speicher dieses Geräts ist voll. Lösche ein Deck oder die Sammlung.'; render(); return; }
+      V.busy = ''; V.text = ''; V.name = ''; V.view = 'deck'; V.id = deck.id;
+      if(!cmds(deck).length) sheet = {type:'cmdpick', sel:(deck.cards[0] && deck.cards[0].cc) ? [deck.cards[0].oid] : [], err:''};
+      render(); window.scrollTo(0, 0);
+    }catch(e){
+      V.busy = ''; V.err = 'Scryfall ist gerade nicht erreichbar. Versuch es gleich noch einmal.'; render();
+    }
+  }
+  function readFile(input, done){
+    if(!input.files || !input.files[0]) return;
+    var fr = new FileReader();
+    fr.onload = function(){ done(String(fr.result || '')); };
+    fr.readAsText(input.files[0]);
+  }
+  function importColl(text){
+    var entries = isCSV(text) ? csvEntries(text) : parseText(text);
+    if(!entries.length){ V.err = 'In dieser Datei wurde keine Karte erkannt. Erwartet wird eine CSV-Datei mit einer Spalte „Name“.'; render(); return; }
+    var m = {}, total = 0;
+    entries.forEach(function(e){ m[e.name] = (m[e.name] || 0) + e.q; total += e.q; });
+    var prev = D.coll;
+    D.coll = {t:Date.now(), total:total, rows:Object.keys(m).sort(function(a, b){ return a.localeCompare(b); }).map(function(n){ return {n:n, q:m[n]}; })};
+    if(!save()){ D.coll = prev; V.err = 'Die Sammlung ist zu groß für den Speicher dieses Geräts.'; render(); return; }
+    V.err = ''; V.view = 'coll'; V.q = ''; render(); window.scrollTo(0, 0);
+  }
+  async function openArts(k){
+    var d = deckById(V.id), x = d && cmds(d)[k]; if(!x) return;
+    try{
+      var r = await fetch(API + '/cards/search?unique=art&order=released&q=' + encodeURIComponent('oracleid:' + x.oid), {headers:{'Accept':'application/json'}});
+      if(!r.ok) return;
+      var list = ((await r.json()).data || []).map(cardArt).filter(function(a){ return okUrl(a.url); }).slice(0, 40);
+      if(list.length){ sheet = {type:'art', oid:x.oid, list:list}; render(); }
+    }catch(e){}
+  }
+
+  app.addEventListener('input', function(e){
+    var t = e.target; if(!t || !t.hasAttribute) return;
+    if(t.hasAttribute('data-decktext')) V.text = t.value;
+    else if(t.hasAttribute('data-deckname')) V.name = t.value;
+    else if(t.hasAttribute('data-rename')){ var d = deckById(V.id); if(d){ d.name = t.value.trim() || d.name; save(); } }
+    else if(t.hasAttribute('data-collq')){ V.q = t.value; var box = document.getElementById('collrows'); if(box) box.innerHTML = collRows(V.q); }
+  });
+  app.addEventListener('change', function(e){
+    var t = e.target; if(!t || !t.hasAttribute) return;
+    if(t.hasAttribute('data-deckfile')) readFile(t, function(text){ V.text = text; V.err = ''; render(); });
+    else if(t.hasAttribute('data-collfile')) readFile(t, importColl);
+  });
+  app.addEventListener('click', function(e){
+    if(e.target.classList && e.target.classList.contains('overlay')){ sheet = null; render(); return; }
+    var b = e.target.closest ? e.target.closest('[data-a]') : null;
+    if(!b || b.disabled) return;
+    var a = b.getAttribute('data-a'), v = b.getAttribute('data-v'), d = deckById(V.id);
+    switch(a){
+      case 'go': V.view = v; V.err = ''; sheet = null; window.scrollTo(0, 0); break;
+      case 'open': V.view = 'deck'; V.id = b.getAttribute('data-id'); window.scrollTo(0, 0); break;
+      case 'import': runImport(); return;
+      case 'arts': openArts(+b.getAttribute('data-k')); return;
+      case 'pickart':
+        if(d && sheet && sheet.type === 'art'){
+          var chosen = sheet.list[+b.getAttribute('data-k')];
+          d.cards.forEach(function(x){ if(x.oid === sheet.oid && chosen){ chosen.label = x.name; x.a = chosen; } });
+          save();
+        }
+        sheet = null; break;
+      case 'sheet':
+        sheet = {type:v};
+        if(v === 'cmdpick' && d) sheet = {type:v, sel:cmds(d).map(function(x){ return x.oid; }), err:''};
+        break;
+      case 'togglecmd':
+        var oid = b.getAttribute('data-oid'), at = sheet.sel.indexOf(oid);
+        if(at >= 0) sheet.sel.splice(at, 1);
+        else if(sheet.sel.length >= 2) sheet.err = 'Es sind höchstens zwei Commander möglich.';
+        else { sheet.sel.push(oid); sheet.err = ''; }
+        break;
+      case 'applycmd':
+        if(d){
+          d.cards.forEach(function(x){ if(sheet.sel.indexOf(x.oid) >= 0) x.c = 1; else delete x.c; });
+          if(/^Deck \d+$/.test(d.name) && cmds(d).length) d.name = cmds(d).map(function(x){ return front(x.name); }).join(' und ');
+          save();
+        }
+        sheet = null; break;
+      case 'deldeck':
+        D.decks = D.decks.filter(function(x){ return String(x.id) !== String(V.id); }); save();
+        sheet = null; V.view = 'list'; break;
+      case 'delcoll': D.coll = null; save(); sheet = null; V.view = 'list'; break;
+      case 'close': sheet = null; break;
+    }
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

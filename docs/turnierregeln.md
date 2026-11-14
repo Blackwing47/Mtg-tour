@@ -126,6 +126,17 @@ Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig
 - Das Bild füllt das Spielerfeld im Zähler und die Kacheln für den Commander-Schaden. Bei Partnern teilen sich beide Bilder das Feld.
 - Vorgaben von Scryfall: Bilder werden nicht verzerrt oder eingefärbt, und Illustrator sowie „© Wizards of the Coast“ stehen in der App (Einrichtung, Zählerfeld, Menü).
 
+## Decklisten und Sammlung
+
+- Decks kommen als Text oder Datei in die App. Das funktioniert mit dem Textexport von Moxfield, Archidekt, ManaBox und ähnlichen Apps sowie mit CSV-Dateien.
+- Die App schlägt jede Karte bei Scryfall nach. Stehen Edition und Kartennummer in der Liste, wird genau diese Version übernommen, auch für das Bild des Commanders.
+- Geprüft wird: 100 Karten einschließlich Commander, höchstens zwei Commander, Farbidentität, jede Karte nur einmal (Standardländer ausgenommen), verbotene Karten.
+- Sideboard, Maybeboard und ähnliche Abschnitte werden nicht mitgezählt.
+- Die Sammlung wird aus einer CSV-Datei eingelesen, zum Beispiel aus ManaBox. Im Deck steht dann, welche Karten in der Sammlung fehlen.
+- Im Zähler lässt sich pro Platz ein gespeichertes Deck wählen. Commander, Partner und Bilder werden übernommen.
+- Ein direktes Verknüpfen von Konten bei Moxfield oder Archidekt ist nicht vorgesehen: Archidekt sperrt Abrufe aus fremden Webseiten, ein Abruf über einen Deck-Link bräuchte den eigenen Server.
+- Im Prototyp liegen Decks und Sammlung nur auf dem jeweiligen Gerät.
+
 ## Weitere geplante Funktionen
 
 - Kartenscan: Kartenname per Kamera erkennen, aktuellen Kartentext, Übersetzung und offizielle Rulings von Scryfall anzeigen.
