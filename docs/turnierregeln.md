@@ -57,6 +57,8 @@ Stand: 14.11.2026. Diese Datei hält fest, was für die Turnier-App entschieden 
 | 3 | 1 | 0 |
 | 4 | 0 | 0 |
 
+An Dreiertischen gibt es 3, 2 und 1 Punkt, bei Zeitablauf 2, 1 und 0.
+
 Geteilte Plätze sind möglich. Alle Spieler auf einem geteilten Platz bekommen dessen Punkte, der nächste Spieler rückt direkt dahinter auf. Beispiel: Plätze 1, 2, 2, 3 ergeben 3, 2, 2, 1 Punkte.
 
 ## Ausscheiden
