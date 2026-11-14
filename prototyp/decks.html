@@ -66,6 +66,15 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
 .list li button:active{background:var(--line)}
 .list li i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--muted);min-width:22px;text-align:right}
 .list li em{font-style:normal;color:var(--muted);margin-left:auto;font-size:13px;white-space:nowrap}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;text-align:center;font-size:14px;line-height:1.25;min-width:0}
+.tile .im{position:relative;display:block}
+.tile img{width:100%;aspect-ratio:488/680;border-radius:4.75% / 3.5%;background:var(--line);display:block}
+.tile .qty,.tile .foil{position:absolute;bottom:6px;background:rgba(0,0,0,.78);color:#fff;border-radius:99px;font-family:var(--num);font-weight:700;font-size:20px;min-width:34px;padding:1px 9px}
+.tile .qty{left:6px}
+.tile .foil{right:6px;font-size:15px;font-family:var(--ui);font-weight:600;padding:4px 9px}
+.tile b{display:block;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile small{color:var(--muted)}
 .cardimgs{display:flex;gap:8px;justify-content:center}
 .cardimgs img{width:100%;max-width:300px;min-width:0;aspect-ratio:488/680;border-radius:4.75% / 3.5%;background:var(--line)}
 .ctext{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
@@ -391,16 +400,40 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     return h + '<button class="ghost warn" data-a="sheet" data-v="del">Deck löschen</button>' +
       '<p class="hint">Bilder über Scryfall. © Wizards of the Coast.</p></main>';
   }
+  function imgUrl(name, p){
+    var alt = p && p.s && p.c ? API + '/cards/' + encodeURIComponent(low(p.s)) + '/' + encodeURIComponent(p.c) + '?format=image&version=normal'
+      : API + '/cards/named?exact=' + encodeURIComponent(front(name)) + '&format=image&version=normal';
+    var id = p && p.id ? low(p.id) : '';
+    if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)){
+      return {src:'https://cards.scryfall.io/normal/front/' + id[0] + '/' + id[1] + '/' + id + '.jpg', alt:alt};
+    }
+    return {src:alt, alt:''};
+  }
   function collRows(q){
     q = low(q);
     var rows = D.coll.rows.filter(function(r){ return !q || low(r.n).indexOf(q) >= 0; });
-    return (rows.length ? '<ul class="list">' + rows.slice(0, 60).map(function(r){ return '<li><button data-a="card" data-n="' + esc(r.n) + '"><i>' + r.q + '</i><span>' + esc(r.n) + '</span>' + (r.p && r.p.length > 1 ? '<em>' + r.p.length + ' Fassungen</em>' : '') + '</button></li>'; }).join('') + '</ul>' : '<p class="hint">Keine Karte gefunden.</p>') +
-      (rows.length > 60 ? '<p class="hint">' + (rows.length - 60) + ' weitere Treffer. Grenze die Suche ein.</p>' : '');
+    if(!rows.length) return '<p class="hint">Keine Karte gefunden.</p>';
+    var tiles = [], count = 0, names = rows.length;
+    rows.forEach(function(r){
+      count += r.q;
+      var ps = r.p && r.p.length ? r.p : [{q:r.q}];
+      ps.forEach(function(p, k){ tiles.push({n:r.n, p:p, k:k}); });
+    });
+    var head = q ? '<p><b>' + count + (count === 1 ? ' Karte' : ' Karten') + '</b> in ' + tiles.length + (tiles.length === 1 ? ' Fassung' : ' Fassungen') + (names > 1 ? ', ' + names + ' verschiedene Karten' : '') + '.</p>' : '';
+    return head + '<div class="tiles">' + tiles.slice(0, 40).map(function(t){
+      var u = imgUrl(t.n, t.p), p = t.p;
+      var where = p.s ? p.s.toUpperCase() + (p.c ? ' #' + p.c : '') : 'Edition unbekannt';
+      return '<button class="tile" data-a="card" data-n="' + esc(t.n) + '" data-k="' + t.k + '" aria-label="' + esc(t.n) + ', ' + esc(where) + (p.f ? ', ' + p.f : '') + ', ' + p.q + ' Stück">' +
+        '<span class="im"><img loading="lazy" src="' + esc(u.src) + '" alt=""' + (u.alt ? ' data-alt="' + esc(u.alt) + '" onerror="this.onerror=null;this.src=this.dataset.alt"' : '') + '>' +
+        '<span class="qty">' + p.q + '</span>' + (p.f ? '<span class="foil">' + esc(p.f) + '</span>' : '') + '</span>' +
+        '<b>' + esc(front(t.n)) + '</b><small>' + esc(where) + (p.l ? ', ' + esc(p.l) : '') + '</small></button>';
+    }).join('') + '</div>' +
+      (tiles.length > 40 ? '<p class="hint">' + (tiles.length - 40) + ' weitere Fassungen. Grenze die Suche ein.</p>' : '');
   }
   function viewColl(){
     if(!D.coll){ V.view = 'list'; return viewList(); }
     return '<main class="page"><button class="back" data-a="go" data-v="list">Zurück</button><h1>Sammlung</h1>' +
-      '<p class="lead">' + D.coll.total + ' Karten, ' + D.coll.rows.length + ' verschiedene. Tippe eine Karte an, um sie zu lesen und deine Fassungen zu sehen.</p>' +
+      '<p class="lead">' + D.coll.total + ' Karten, ' + D.coll.rows.length + ' verschiedene. Jede Kachel ist eine Fassung, die Zahl zeigt, wie oft du sie hast. Tippe eine Kachel an, um die Karte zu lesen.</p>' +
       '<input class="txt" type="search" data-collq value="' + esc(V.q) + '" placeholder="Karte suchen" aria-label="Karte in der Sammlung suchen">' +
       '<div id="collrows">' + collRows(V.q) + '</div>' +
       '<button class="ghost warn" data-a="sheet" data-v="delcoll">Sammlung löschen</button></main>';
@@ -539,10 +572,10 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     }
     render();
   }
-  function openCard(name, sid){
+  function openCard(name, sid, k){
     var row = collRow(name), prints = row && row.p ? row.p : [];
     var sel = -1;
-    if(prints.length && !sid) sel = 0;
+    if(prints.length && !sid) sel = (k >= 0 && k < prints.length) ? k : 0;
     sheet = {type:'card', name:name, sid:sid || '', card:null, err:'', prints:prints, owned:row ? row.q : 0, sel:sel};
     loadCard(sel >= 0 ? prints[sel] : null);
   }
@@ -577,7 +610,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       case 'go': V.view = v; V.err = ''; sheet = null; window.scrollTo(0, 0); break;
       case 'open': V.view = 'deck'; V.id = b.getAttribute('data-id'); window.scrollTo(0, 0); break;
       case 'import': runImport(); return;
-      case 'card': openCard(b.getAttribute('data-n'), b.getAttribute('data-sid') || ''); return;
+      case 'card': openCard(b.getAttribute('data-n'), b.getAttribute('data-sid') || '', b.hasAttribute('data-k') ? +b.getAttribute('data-k') : -1); return;
       case 'print':
         if(sheet && sheet.type === 'card'){ sheet.sel = +b.getAttribute('data-k'); loadCard(sheet.prints[sheet.sel]); }
         return;
