@@ -32,6 +32,14 @@ Stand: 14.11.2026. Diese Datei hält fest, was für die Turnier-App entschieden 
 - Geht die Teilnehmerzahl nicht durch vier auf, gibt es einzelne Dreiertische.
 - Rangliste bei Punktgleichheit: erst Anzahl der Siege, dann Punkte der bisherigen Gegner.
 
+## Nachträge und Abmeldungen
+
+- Die Turnierleitung kann während des Turniers Spieler nachtragen und abmelden.
+- Nachgetragene Spieler steigen ab der nächsten Auslosung mit 0 Punkten ein. Verpasste Runden werden nicht nachgeholt.
+- Abgemeldete Spieler behalten ihre Punkte, bleiben in der Rangliste und werden nicht mehr gelost. Sie lassen sich zurückholen.
+- Solange in einer Runde noch kein Tisch gemeldet hat, kann die Runde neu ausgelost werden. Dann gelten die Änderungen schon für diese Runde.
+- Fällt ein Spieler während einer laufenden Partie aus, wertet der Tisch ihn als ausgeschieden (Aufgabe).
+
 ## Tourwertung
 
 - Nach der letzten Runde eines Turniers wird die Rangliste in die Tourwertung übernommen.

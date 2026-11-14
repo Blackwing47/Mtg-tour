@@ -197,7 +197,10 @@ tr.cut td{border-bottom:2px solid var(--ink)}
   }
 
   /* ---------- Turnierlogik ---------- */
+  function isActive(i){ return !(S.dropped && S.dropped[i]); }
+  function activeCount(){ var c = 0; S.players.forEach(function(_, i){ if(isActive(i)) c++; }); return c; }
   function tableSizes(n){
+    if(n < 6 && n !== 4) return n > 0 ? [n] : [];
     var t = Math.ceil(n/4), threes = 4*t - n, a = [];
     for(var i=0;i<t;i++) a.push(i < t - threes ? 4 : 3);
     return a;
@@ -233,13 +236,13 @@ tr.cut td{border-bottom:2px solid var(--ink)}
   function makeRound(kind){
     var T = totals(), tables = [];
     if(kind === 'final'){
-      tables.push({players:ranking(T).slice(0,4), places:null});
+      tables.push({players:ranking(T).filter(isActive).slice(0,4), places:null});
     }else{
       var first = S.roundsData.length === 0;
-      var rest = first ? shuffle(S.players.map(function(_, i){ return i; })) : ranking(T);
+      var rest = (first ? shuffle(S.players.map(function(_, i){ return i; })) : ranking(T)).filter(isActive);
       var met = S.players.map(function(){ return {}; });
       T.forEach(function(t, i){ t.opps.forEach(function(q){ met[i][q] = true; }); });
-      tableSizes(S.players.length).forEach(function(sz){
+      tableSizes(rest.length).forEach(function(sz){
         var tb = [rest.shift()];
         while(tb.length < sz){
           var pick = 0, lim = Math.min(rest.length, 8);
@@ -328,7 +331,7 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       rk.map(function(i, pos){
         var prev = tm[nkey(S.players[i])];
         var tourPts = (prev ? prev.pts : 0) + (S.savedId ? 0 : T[i].pts);
-        return '<tr' + (cut && pos === 3 ? ' class="cut"' : '') + '><td>' + (pos+1) + '</td><td>' + esc(S.players[i]) + '</td><td>' + T[i].pts + '</td><td>' + T[i].wins + '</td><td>' + T[i].oppPts + '</td><td>' + tourPts + '</td></tr>';
+        return '<tr' + (cut && pos === 3 ? ' class="cut"' : '') + '><td>' + (pos+1) + '</td><td>' + esc(S.players[i]) + (isActive(i) ? '' : ' (abgemeldet)') + '</td><td>' + T[i].pts + '</td><td>' + T[i].wins + '</td><td>' + T[i].oppPts + '</td><td>' + tourPts + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<p class="hint">Geg.-Pkt. ist die Punktsumme der bisherigen Gegner und entscheidet bei Gleichstand. Tour zeigt den Punktestand über alle Turniere' + (S.savedId ? '.' : ' einschließlich des laufenden.') + '</p>' +
       (cut ? '<p class="hint">Die Linie zeigt, wer aktuell am Finaltisch säße.</p>' : '');
@@ -403,8 +406,22 @@ tr.cut td{border-bottom:2px solid var(--ink)}
         '<p>' + (dev ? esc(dev.name) : 'Dieses Turnier') + ' wird aus der Tourwertung entfernt.</p>' +
         '<button class="primary" data-a="delevent">Aus der Tourwertung löschen</button>' +
         '<button class="ghost" data-a="close">Behalten</button>';
+    }else if(sheet.type === 'players'){
+      var cr = curRound(), fresh0 = reported(cr) === 0 && cr.kind !== 'final';
+      body = '<div class="shead"><h2>Teilnehmer</h2>' + close + '</div>' +
+        '<p class="hint">Neue Spieler steigen ab der nächsten Auslosung mit 0 Punkten ein. Abgemeldete behalten ihre Punkte und werden nicht mehr gelost. ' + activeCount() + ' von ' + S.players.length + ' sind aktiv.</p>' +
+        '<input class="txt" type="text" maxlength="30" data-newname value="' + esc(sheet.newName || '') + '" placeholder="Name des neuen Spielers" aria-label="Name des neuen Spielers">' +
+        (sheet.err ? '<p class="err">' + esc(sheet.err) + '</p>' : '') +
+        '<button class="primary" data-a="addplayer">Spieler nachtragen</button>' +
+        (fresh0 ? '<button class="ghost" data-a="redraw">Diese Runde neu auslosen</button><p class="hint">Möglich, solange noch kein Tisch gemeldet hat. Damit gelten Nachträge und Abmeldungen schon für diese Runde.</p>' : '') +
+        '<h2>Alle Spieler</h2>';
+      S.players.map(function(_, i){ return i; }).sort(function(a,b){ return S.players[a].localeCompare(S.players[b]); }).forEach(function(i){
+        body += '<div class="evrow"><span>' + esc(S.players[i]) + (isActive(i) ? '' : '<small>abgemeldet</small>') + '</span>' +
+          '<button data-a="drop" data-i="' + i + '">' + (isActive(i) ? 'Abmelden' : 'Zurückholen') + '</button></div>';
+      });
     }else if(sheet.type === 'menu'){
       body = '<div class="shead"><h2>Menü</h2>' + close + '</div>' +
+        '<button class="ghost" data-a="sheet" data-v="players">Teilnehmer nachtragen oder abmelden</button>' +
         '<button class="ghost" data-a="timerreset">Timer auf 60 Minuten zurücksetzen</button>' +
         '<button class="ghost warn" data-a="sheet" data-v="reset">Turnier verwerfen</button>';
     }else if(sheet.type === 'reset'){
@@ -437,6 +454,8 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       S.namesText = t.value; save();
     }else if(t && t.hasAttribute && t.hasAttribute('data-evname')){
       if(sheet) sheet.name = t.value;
+    }else if(t && t.hasAttribute && t.hasAttribute('data-newname')){
+      if(sheet){ sheet.newName = t.value; }
     }
     if(t && t.hasAttribute && t.hasAttribute('data-names')){
       var c = document.getElementById('count'); if(c) c.textContent = countText(parseNames().length);
@@ -497,6 +516,21 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       case 'reset':
         var keep = S.namesText, rr = S.rounds, ff = S.final;
         var aa = S.auto; S = fresh(); S.namesText = keep; S.rounds = rr; S.final = ff; S.auto = aa; sheet = null; break;
+      case 'addplayer':
+        var nn = ((sheet && sheet.newName) || '').trim();
+        if(!nn){ sheet.err = 'Bitte einen Namen eintragen.'; break; }
+        if(S.players.some(function(x){ return nkey(x) === nkey(nn); })){ sheet.err = 'Diesen Namen gibt es schon.'; break; }
+        S.players.push(nn); S.namesText = (S.namesText ? S.namesText.replace(/\s+$/, '') + '\n' : '') + nn;
+        sheet.newName = ''; sheet.err = ''; syncSaved(); break;
+      case 'drop':
+        var di = +b.getAttribute('data-i');
+        if(!S.dropped) S.dropped = {};
+        if(isActive(di) && activeCount() <= 3){ sheet.err = 'Es müssen mindestens drei Spieler aktiv bleiben.'; break; }
+        S.dropped[di] = isActive(di); sheet.err = ''; break;
+      case 'redraw':
+        var rr0 = curRound();
+        if(reported(rr0) === 0 && rr0.kind !== 'final'){ S.roundsData.pop(); makeRound('vor'); sheet = null; }
+        break;
       case 'saveevent':
         if(S.savedId || !sheet) break;
         var id = Date.now();
