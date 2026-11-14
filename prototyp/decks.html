@@ -61,9 +61,19 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
 .stat b{display:block;font-family:var(--num);font-size:26px;line-height:1.1}
 .stat span{font-size:13px;color:var(--muted)}
-.list li{display:flex;gap:10px;padding:6px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.list li{border-bottom:1px solid var(--line);font-size:15px}
+.list li button{display:flex;gap:10px;width:100%;text-align:left;padding:9px 2px;align-items:baseline}
+.list li button:active{background:var(--line)}
 .list li i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--muted);min-width:22px;text-align:right}
 .list li em{font-style:normal;color:var(--muted);margin-left:auto;font-size:13px;white-space:nowrap}
+.cardimgs{display:flex;gap:8px;justify-content:center}
+.cardimgs img{width:100%;max-width:300px;min-width:0;aspect-ratio:488/680;border-radius:4.75% / 3.5%;background:var(--line)}
+.ctext{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.ctext .cn{display:flex;justify-content:space-between;gap:10px;font-weight:600;font-size:17px}
+.ctext .cn span:last-child{font-weight:500;white-space:nowrap;color:var(--muted)}
+.ctext .ty{font-size:14px;color:var(--muted)}
+.ctext .ot{white-space:pre-line;font-size:15px}
+.ctext hr{border:0;border-top:1px solid var(--line);width:100%;margin:4px 0}
 .overlay{position:fixed;inset:0;background:rgba(10,8,20,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
 .sheet{background:var(--bg);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:22px 22px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
 .shead{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -178,11 +188,13 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     var cName = col(hd, ['name','card name','card']), cQty = col(hd, ['quantity','count','qty','amount']);
     var cSet = col(hd, ['set code','edition','edition code','set']), cCn = col(hd, ['collector number','card number','collector_number']);
     var cId = col(hd, ['scryfall id','scryfall_id']);
+    var cFoil = col(hd, ['foil','finish','printing']), cSn = col(hd, ['set name','edition name']), cLang = col(hd, ['language','lang']);
     var out = [];
     rows.slice(1).forEach(function(r){
       var name = (r[cName] || '').trim(); if(!name) return;
       var q = cQty >= 0 ? parseInt(r[cQty], 10) : 1; if(!(q > 0)) q = 1;
-      out.push({q:q, name:name, set:cSet >= 0 ? (r[cSet] || '').trim() : '', cn:cCn >= 0 ? (r[cCn] || '').trim() : '', id:cId >= 0 ? (r[cId] || '').trim() : '', cmdr:false});
+      out.push({q:q, name:name, set:cSet >= 0 ? (r[cSet] || '').trim() : '', cn:cCn >= 0 ? (r[cCn] || '').trim() : '', id:cId >= 0 ? (r[cId] || '').trim() : '', cmdr:false,
+        foil:cFoil >= 0 ? low(r[cFoil]) : '', sn:cSn >= 0 ? (r[cSn] || '').trim() : '', lang:cLang >= 0 ? (r[cLang] || '').trim() : ''});
     });
     return out;
   }
@@ -250,7 +262,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       var t = c.type_line || '', ot = otext(c);
       var x = byOid[c.oracle_id];
       if(!x){
-        x = byOid[c.oracle_id] = {q:0, name:c.name, oid:c.oracle_id, ci:(c.color_identity || []).join(''), t:t, cmc:c.cmc || 0,
+        x = byOid[c.oracle_id] = {q:0, name:c.name, oid:c.oracle_id, sid:c.id || '', ci:(c.color_identity || []).join(''), t:t, cmc:c.cmc || 0,
           lg:(c.legalities || {}).commander || '', any:/A deck can have any number of cards named/i.test(ot)};
         if((/Legendary/.test(t) && /Creature/.test(t)) || /can be your commander/i.test(ot) || /Background/.test(t)){ x.cc = 1; x.a = cardArt(c); }
         order.push(x);
@@ -373,7 +385,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       var list = d.cards.filter(function(x){ return groupOf(x) === gi; }).sort(function(a, b){ return a.name.localeCompare(b.name); });
       if(!list.length) return;
       h += '<h3>' + g[0] + ' (' + list.reduce(function(s, x){ return s + x.q; }, 0) + ')</h3><ul class="list">' + list.map(function(x){
-        return '<li><i>' + x.q + '</i><span>' + esc(x.name) + '</span>' + (D.coll && !cl[low(front(x.name))] ? '<em>nicht in Sammlung</em>' : '') + '</li>';
+        return '<li><button data-a="card" data-n="' + esc(x.name) + '" data-sid="' + esc(x.sid || '') + '"><i>' + x.q + '</i><span>' + esc(x.name) + '</span>' + (D.coll && !cl[low(front(x.name))] ? '<em>nicht in Sammlung</em>' : '') + '</button></li>';
       }).join('') + '</ul>';
     });
     return h + '<button class="ghost warn" data-a="sheet" data-v="del">Deck löschen</button>' +
@@ -382,13 +394,13 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
   function collRows(q){
     q = low(q);
     var rows = D.coll.rows.filter(function(r){ return !q || low(r.n).indexOf(q) >= 0; });
-    return (rows.length ? '<ul class="list">' + rows.slice(0, 60).map(function(r){ return '<li><i>' + r.q + '</i><span>' + esc(r.n) + '</span></li>'; }).join('') + '</ul>' : '<p class="hint">Keine Karte gefunden.</p>') +
+    return (rows.length ? '<ul class="list">' + rows.slice(0, 60).map(function(r){ return '<li><button data-a="card" data-n="' + esc(r.n) + '"><i>' + r.q + '</i><span>' + esc(r.n) + '</span>' + (r.p && r.p.length > 1 ? '<em>' + r.p.length + ' Fassungen</em>' : '') + '</button></li>'; }).join('') + '</ul>' : '<p class="hint">Keine Karte gefunden.</p>') +
       (rows.length > 60 ? '<p class="hint">' + (rows.length - 60) + ' weitere Treffer. Grenze die Suche ein.</p>' : '');
   }
   function viewColl(){
     if(!D.coll){ V.view = 'list'; return viewList(); }
     return '<main class="page"><button class="back" data-a="go" data-v="list">Zurück</button><h1>Sammlung</h1>' +
-      '<p class="lead">' + D.coll.total + ' Karten, ' + D.coll.rows.length + ' verschiedene.</p>' +
+      '<p class="lead">' + D.coll.total + ' Karten, ' + D.coll.rows.length + ' verschiedene. Tippe eine Karte an, um sie zu lesen und deine Fassungen zu sehen.</p>' +
       '<input class="txt" type="search" data-collq value="' + esc(V.q) + '" placeholder="Karte suchen" aria-label="Karte in der Sammlung suchen">' +
       '<div id="collrows">' + collRows(V.q) + '</div>' +
       '<button class="ghost warn" data-a="sheet" data-v="delcoll">Sammlung löschen</button></main>';
@@ -409,6 +421,35 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       body = '<div class="shead"><h2>Bild wählen</h2>' + close + '</div><div class="artgrid">' + sheet.list.map(function(a, k){
         return '<button data-a="pickart" data-k="' + k + '"><img loading="lazy" src="' + esc(a.url) + '" alt=""><span>' + esc(a.set) + (a.year ? ' (' + a.year + ')' : '') + '<small>' + esc(a.artist) + '</small></span></button>';
       }).join('') + '</div><p class="hint">© Wizards of the Coast, Bilder über Scryfall.</p>';
+    }else if(sheet.type === 'card'){
+      var c = sheet.card;
+      body = '<div class="shead"><h2>' + esc(front(sheet.name)) + '</h2>' + close + '</div>';
+      if(sheet.err) body += '<p class="err">' + esc(sheet.err) + '</p>';
+      else if(!c) body += '<p role="status">Karte wird geladen …</p>';
+      else{
+        var faces = (c.card_faces && c.card_faces.length && !c.image_uris) ? c.card_faces : [c];
+        var imgs = faces.map(function(f){ return f.image_uris && okUrl(f.image_uris.normal) ? f.image_uris.normal : ''; }).filter(Boolean);
+        body += '<div class="cardimgs">' + imgs.map(function(u){ return '<img src="' + esc(u) + '" alt="">'; }).join('') + '</div><div class="ctext">';
+        var tf = c.card_faces && c.card_faces.length ? c.card_faces : [c];
+        tf.forEach(function(f, k){
+          var pt = f.power !== undefined ? f.power + '/' + f.toughness : (f.loyalty ? 'Loyalität ' + f.loyalty : '');
+          body += (k ? '<hr>' : '') + '<div class="cn"><span>' + esc(f.name || c.name) + '</span><span>' + esc(f.mana_cost || '') + '</span></div>' +
+            '<div class="ty">' + esc(f.type_line || c.type_line || '') + (pt ? ' · ' + esc(pt) : '') + '</div>' +
+            '<div class="ot">' + esc(f.oracle_text || '') + '</div>';
+        });
+        body += '</div><p class="hint">' + esc(c.set_name || '') + ' (' + esc((c.set || '').toUpperCase()) + ') Nr. ' + esc(c.collector_number || '') + (c.artist ? ', Illustration: ' + esc(c.artist) : '') + '. © Wizards of the Coast, Daten und Bild über Scryfall.</p>';
+      }
+      if(sheet.prints && sheet.prints.length){
+        body += '<h2>In deiner Sammlung: ' + sheet.owned + '</h2>' + sheet.prints.map(function(p, k){
+          var label = (p.sn || (p.s ? p.s.toUpperCase() : 'Unbekannte Edition')) + (p.sn && p.s ? ' (' + p.s.toUpperCase() + ')' : '') + (p.c ? ' Nr. ' + p.c : '');
+          return '<button class="opt" data-a="print" data-k="' + k + '" aria-pressed="' + (sheet.sel === k) + '"><span>' + esc(label) + (p.f || p.l ? '<br><small>' + esc([p.f, p.l].filter(Boolean).join(', ')) + '</small>' : '') + '</span><span>' + p.q + '×</span></button>';
+        }).join('');
+      }else if(D.coll){
+        body += '<p class="hint">Diese Karte steht nicht in deiner Sammlung.</p>';
+      }
+      if(c && typeof c.scryfall_uri === 'string' && c.scryfall_uri.indexOf('https://scryfall.com/') === 0){
+        body += '<a class="ghost" href="' + esc(c.scryfall_uri) + '" target="_blank" rel="noopener" style="text-decoration:none">Bei Scryfall öffnen (Rulings, Preise)</a>';
+      }
     }else if(sheet.type === 'del' && d){
       body = '<div class="shead"><h2>Deck löschen?</h2>' + close + '</div><p>' + esc(d.name) + ' wird von diesem Gerät entfernt.</p>' +
         '<button class="primary" data-a="deldeck">Deck löschen</button><button class="ghost" data-a="close">Behalten</button>';
@@ -455,11 +496,55 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     var entries = isCSV(text) ? csvEntries(text) : parseText(text);
     if(!entries.length){ V.err = 'In dieser Datei wurde keine Karte erkannt. Erwartet wird eine CSV-Datei mit einer Spalte „Name“.'; render(); return; }
     var m = {}, total = 0;
-    entries.forEach(function(e){ m[e.name] = (m[e.name] || 0) + e.q; total += e.q; });
+    entries.forEach(function(e){
+      var r = m[e.name] || (m[e.name] = {n:e.name, q:0, p:[]});
+      r.q += e.q; total += e.q;
+      var f = /etched/.test(e.foil) ? 'Etched' : (/^(foil|true|yes|1)$/.test(e.foil) ? 'Foil' : '');
+      var same = r.p.filter(function(x){ return x.s === e.set && x.c === e.cn && x.f === f && x.l === e.lang; })[0];
+      if(same) same.q += e.q;
+      else r.p.push({s:e.set, c:e.cn, f:f, q:e.q, id:e.id, sn:e.sn, l:e.lang});
+    });
     var prev = D.coll;
-    D.coll = {t:Date.now(), total:total, rows:Object.keys(m).sort(function(a, b){ return a.localeCompare(b); }).map(function(n){ return {n:n, q:m[n]}; })};
+    D.coll = {t:Date.now(), total:total, rows:Object.keys(m).sort(function(a, b){ return a.localeCompare(b); }).map(function(n){ return m[n]; })};
     if(!save()){ D.coll = prev; V.err = 'Die Sammlung ist zu groß für den Speicher dieses Geräts.'; render(); return; }
     V.err = ''; V.view = 'coll'; V.q = ''; render(); window.scrollTo(0, 0);
+  }
+  function collRow(name){
+    if(!D.coll) return null;
+    var key = low(front(name));
+    return D.coll.rows.filter(function(r){ return low(front(r.n)) === key; })[0] || null;
+  }
+  async function fetchCard(name, sid, p){
+    var url;
+    if(p && p.id) url = API + '/cards/' + encodeURIComponent(p.id);
+    else if(p && p.s && p.c) url = API + '/cards/' + encodeURIComponent(low(p.s)) + '/' + encodeURIComponent(p.c);
+    else if(sid) url = API + '/cards/' + encodeURIComponent(sid);
+    else url = API + '/cards/named?exact=' + encodeURIComponent(front(name));
+    var r = await fetch(url, {headers:{'Accept':'application/json'}});
+    if(!r.ok && (p || sid)){ r = await fetch(API + '/cards/named?fuzzy=' + encodeURIComponent(front(name)), {headers:{'Accept':'application/json'}}); }
+    if(!r.ok) throw new Error('scryfall ' + r.status);
+    return r.json();
+  }
+  var cardSeq = 0;
+  async function loadCard(p){
+    var seq = ++cardSeq, s = sheet;
+    s.card = null; s.err = ''; render();
+    try{
+      var c = await fetchCard(s.name, s.sid, p);
+      if(seq !== cardSeq || sheet !== s) return;
+      s.card = c;
+    }catch(e){
+      if(seq !== cardSeq || sheet !== s) return;
+      s.err = 'Die Karte konnte bei Scryfall nicht geladen werden.';
+    }
+    render();
+  }
+  function openCard(name, sid){
+    var row = collRow(name), prints = row && row.p ? row.p : [];
+    var sel = -1;
+    if(prints.length && !sid) sel = 0;
+    sheet = {type:'card', name:name, sid:sid || '', card:null, err:'', prints:prints, owned:row ? row.q : 0, sel:sel};
+    loadCard(sel >= 0 ? prints[sel] : null);
   }
   async function openArts(k){
     var d = deckById(V.id), x = d && cmds(d)[k]; if(!x) return;
@@ -492,6 +577,10 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       case 'go': V.view = v; V.err = ''; sheet = null; window.scrollTo(0, 0); break;
       case 'open': V.view = 'deck'; V.id = b.getAttribute('data-id'); window.scrollTo(0, 0); break;
       case 'import': runImport(); return;
+      case 'card': openCard(b.getAttribute('data-n'), b.getAttribute('data-sid') || ''); return;
+      case 'print':
+        if(sheet && sheet.type === 'card'){ sheet.sel = +b.getAttribute('data-k'); loadCard(sheet.prints[sheet.sel]); }
+        return;
       case 'arts': openArts(+b.getAttribute('data-k')); return;
       case 'pickart':
         if(d && sheet && sheet.type === 'art'){
