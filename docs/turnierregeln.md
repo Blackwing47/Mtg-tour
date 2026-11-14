@@ -32,6 +32,14 @@ Stand: 14.11.2026. Diese Datei hält fest, was für die Turnier-App entschieden 
 - Geht die Teilnehmerzahl nicht durch vier auf, gibt es einzelne Dreiertische.
 - Rangliste bei Punktgleichheit: erst Anzahl der Siege, dann Punkte der bisherigen Gegner.
 
+## Tourwertung
+
+- Nach der letzten Runde eines Turniers wird die Rangliste in die Tourwertung übernommen.
+- Die Tourwertung addiert die Punkte aller gespeicherten Turniere. Bei Punktgleichheit entscheiden die Siege, danach die beste Einzelplatzierung.
+- Spieler werden über ihren Namen zugeordnet. Der Name muss deshalb in jedem Turnier gleich geschrieben sein, bis es Profile gibt.
+- Die Rangliste eines laufenden Turniers zeigt zusätzlich den Tourstand einschließlich der laufenden Punkte.
+- Im Prototyp liegt die Tourwertung nur auf dem Gerät der Turnierleitung. Sie lässt sich als Sicherungsdatei herunterladen und wieder einlesen.
+
 ## Punkte pro Partie
 
 | Platz | Reguläres Ende | Ende durch Zeitablauf |

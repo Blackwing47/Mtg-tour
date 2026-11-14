@@ -62,7 +62,13 @@ textarea{font:inherit;color:inherit;background:var(--surface);border:1px solid v
 .clock button{border:1.5px solid var(--line);border-radius:12px;height:44px;padding:0 14px;font-weight:500;background:var(--bg)}
 .progress{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
 .progress span{display:block;height:100%;background:var(--ok-ink)}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.evrow{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 8px 8px 12px}
+.evrow span{flex:1;min-width:0}
+.evrow small{display:block;color:var(--muted)}
+.evrow button{border:1.5px solid var(--line);border-radius:10px;height:40px;padding:0 12px;color:var(--danger);background:var(--bg)}
+input.txt{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;width:100%}
+label.ghost{display:grid;place-items:center;cursor:pointer}
 .tabs button{height:44px;border-radius:12px;border:1.5px solid var(--line);font-weight:600;background:var(--surface)}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
 
@@ -78,7 +84,7 @@ textarea{font:inherit;color:inherit;background:var(--surface);border:1px solid v
 
 .scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th,td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th,td{text-align:right;padding:8px 5px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-weight:500;color:var(--muted);font-size:14px}
 th:nth-child(2),td:nth-child(2){text-align:left}
 td:nth-child(3){font-family:var(--num);font-weight:700;font-size:20px}
@@ -121,6 +127,61 @@ tr.cut td{border-bottom:2px solid var(--ink)}
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
   var S = load() || fresh();
+
+  /* ---------- Tourwertung (eigener Speicher, bleibt beim Verwerfen eines Turniers erhalten) ---------- */
+  var TKEY = 'mtg-tour-wertung-v1';
+  function loadTour(){
+    try{
+      var t = JSON.parse(localStorage.getItem(TKEY) || 'null');
+      if(t && t.v === 1 && Array.isArray(t.events)) return t;
+    }catch(e){}
+    return null;
+  }
+  function saveTour(){ try{ localStorage.setItem(TKEY, JSON.stringify(T)); }catch(e){} }
+  var T = loadTour() || {v:1, events:[]};
+  function nkey(n){ return String(n).trim().toLowerCase(); }
+  function tourMap(){
+    var m = {};
+    T.events.forEach(function(ev){
+      ev.rows.forEach(function(r){
+        var e = m[nkey(r.name)] || (m[nkey(r.name)] = {name:r.name, pts:0, wins:0, events:0, best:99});
+        e.pts += r.pts; e.wins += r.wins; e.events++; if(r.rank < e.best) e.best = r.rank;
+      });
+    });
+    return m;
+  }
+  function eventRows(){
+    var tt = totals(), rk = ranking(tt);
+    return rk.map(function(i, pos){ return {name:S.players[i], pts:tt[i].pts, wins:tt[i].wins, oppPts:tt[i].oppPts, rank:pos + 1}; });
+  }
+  function syncSaved(){
+    if(!S.savedId) return;
+    T.events.forEach(function(ev){ if(ev.id === S.savedId) ev.rows = eventRows(); });
+    saveTour();
+  }
+  function fmtDate(t){ try{ return new Date(t).toLocaleDateString('de-DE'); }catch(e){ return ''; } }
+  function tourView(){
+    if(!T.events.length){
+      return '<p class="hint">Noch kein Turnier gespeichert. Nach der letzten Runde lässt sich das Ergebnis in die Tourwertung übernehmen.</p>' +
+        '<label class="ghost">Sicherung einlesen<input type="file" accept=".json,application/json" hidden data-import></label>';
+    }
+    var m = tourMap();
+    var rows = Object.keys(m).map(function(k){ return m[k]; }).sort(function(a,b){
+      return b.pts - a.pts || b.wins - a.wins || a.best - b.best || a.name.localeCompare(b.name);
+    });
+    var h = '<p class="hint">' + T.events.length + ' von 6 Turnieren gespeichert.</p>' +
+      '<div class="scroll"><table><thead><tr><th>Rang</th><th>Name</th><th>Punkte</th><th>Siege</th><th>Turniere</th></tr></thead><tbody>' +
+      rows.map(function(r, pos){
+        return '<tr><td>' + (pos + 1) + '</td><td>' + esc(r.name) + '</td><td>' + r.pts + '</td><td>' + r.wins + '</td><td>' + r.events + '</td></tr>';
+      }).join('') + '</tbody></table></div><h2>Gespeicherte Turniere</h2>';
+    T.events.forEach(function(ev){
+      var first = ev.rows.filter(function(r){ return r.rank === 1; }).map(function(r){ return esc(r.name); }).join(', ');
+      h += '<div class="evrow"><span>' + esc(ev.name) + '<small>' + fmtDate(ev.t) + ', ' + ev.rows.length + ' Spieler, Platz 1: ' + first + '</small></span>' +
+        '<button data-a="sheet" data-v="delev" data-id="' + ev.id + '">Löschen</button></div>';
+    });
+    return h + '<button class="ghost" data-a="export">Sicherung herunterladen</button>' +
+      '<label class="ghost">Sicherung einlesen<input type="file" accept=".json,application/json" hidden data-import></label>';
+  }
 
   function esc(t){
     return String(t).replace(/[&<>"']/g, function(c){
@@ -231,7 +292,8 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       '<p class="hint" id="rinfo">' + roundText(n) + '</p>' +
       '<button class="toggle" data-a="final" aria-pressed="' + S.final + '"><span>Zusätzlicher Finaltisch<br><span class="hint">Die vier Punktbesten spielen eine Runde mehr als alle anderen.</span></span><i></i></button>' +
       (S.err ? '<p class="err">' + esc(S.err) + '</p>' : '') +
-      '<button class="primary" data-a="begin">Runde 1 auslosen</button></main>';
+      '<button class="primary" data-a="begin">Runde 1 auslosen</button>' +
+      '<button class="ghost" data-a="sheet" data-v="tour">Tourwertung ansehen (' + T.events.length + ' von 6 Turnieren)</button></main>';
   }
   function roundText(n){
     var ok = n >= 4 && n !== 5;
@@ -261,10 +323,14 @@ tr.cut td{border-bottom:2px solid var(--ink)}
   function standingsTable(){
     var T = totals(), rk = ranking(T);
     var cut = S.final && !S.roundsData.some(function(r){ return r.kind === 'final'; });
-    return '<div class="scroll"><table><thead><tr><th>Rang</th><th>Name</th><th>Punkte</th><th>Siege</th><th>Gegnerpunkte</th></tr></thead><tbody>' +
+    var tm = tourMap();
+    return '<div class="scroll"><table><thead><tr><th>Rang</th><th>Name</th><th>Punkte</th><th>Siege</th><th>Geg.-Pkt.</th><th>Tour</th></tr></thead><tbody>' +
       rk.map(function(i, pos){
-        return '<tr' + (cut && pos === 3 ? ' class="cut"' : '') + '><td>' + (pos+1) + '</td><td>' + esc(S.players[i]) + '</td><td>' + T[i].pts + '</td><td>' + T[i].wins + '</td><td>' + T[i].oppPts + '</td></tr>';
+        var prev = tm[nkey(S.players[i])];
+        var tourPts = (prev ? prev.pts : 0) + (S.savedId ? 0 : T[i].pts);
+        return '<tr' + (cut && pos === 3 ? ' class="cut"' : '') + '><td>' + (pos+1) + '</td><td>' + esc(S.players[i]) + '</td><td>' + T[i].pts + '</td><td>' + T[i].wins + '</td><td>' + T[i].oppPts + '</td><td>' + tourPts + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
+      '<p class="hint">Geg.-Pkt. ist die Punktsumme der bisherigen Gegner und entscheidet bei Gleichstand. Tour zeigt den Punktestand über alle Turniere' + (S.savedId ? '.' : ' einschließlich des laufenden.') + '</p>' +
       (cut ? '<p class="hint">Die Linie zeigt, wer aktuell am Finaltisch säße.</p>' : '');
   }
   function viewRun(){
@@ -278,7 +344,8 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="' + all + '" aria-valuenow="' + rep + '"><span style="width:' + (100*rep/all) + '%"></span></div>' +
       '<p class="hint">' + rep + ' von ' + all + (all === 1 ? ' Tisch' : ' Tischen') + ' gemeldet.</p>' +
       '<div class="tabs"><button data-a="tab" data-v="tables" aria-pressed="' + (S.tab === 'tables') + '">Tische</button>' +
-      '<button data-a="tab" data-v="rank" aria-pressed="' + (S.tab === 'rank') + '">Rangliste</button></div>';
+      '<button data-a="tab" data-v="rank" aria-pressed="' + (S.tab === 'rank') + '">Rangliste</button>' +
+      '<button data-a="tab" data-v="tour" aria-pressed="' + (S.tab === 'tour') + '">Tour</button></div>';
     if(S.tab === 'tables'){
       if(rep === all){
         if(isLast()){
@@ -289,13 +356,18 @@ tr.cut td{border-bottom:2px solid var(--ink)}
             winner = ' Tagessieg: ' + w.join(' und ') + '.';
           }
           h += '<p><b>Alle Runden sind gespielt.</b>' + winner + '</p>' +
-            '<button class="primary" data-a="tab" data-v="rank">Rangliste ansehen</button>';
+            (S.savedId
+              ? '<p>Das Ergebnis steht in der Tourwertung.</p><button class="primary" data-a="newevent">Neues Turnier vorbereiten</button>'
+              : '<button class="primary" data-a="sheet" data-v="save">Turnier abschließen und speichern</button>') +
+            '<button class="ghost" data-a="tab" data-v="rank">Rangliste ansehen</button>';
         }else{
           h += '<button class="primary" data-a="nextround">' + (nextKind() === 'final' ? 'Finaltisch bilden' : 'Runde ' + (S.cur + 2) + ' auslosen') + '</button>';
         }
       }
       h += '<div class="tables">' + r.tables.map(function(tb, ti){ return tableCard(tb, ti, r); }).join('') + '</div>';
       if(rep < all) h += '<button class="ghost" data-a="sim">Offene Tische zum Test zufällig werten</button>';
+    }else if(S.tab === 'tour'){
+      h += tourView();
     }else{
       h += standingsTable();
     }
@@ -318,6 +390,19 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       });
       if(sheet.err) body += '<p class="err">' + esc(sheet.err) + '</p>';
       body += '<button class="primary" data-a="report">Ergebnis melden</button>';
+    }else if(sheet.type === 'save'){
+      body = '<div class="shead"><h2>Turnier speichern</h2>' + close + '</div>' +
+        '<p>Die Rangliste dieses Turniers wird in die Tourwertung übernommen.</p>' +
+        '<input class="txt" type="text" maxlength="40" data-evname value="' + esc(sheet.name) + '" aria-label="Name des Turniers">' +
+        '<button class="primary" data-a="saveevent">In die Tourwertung übernehmen</button>';
+    }else if(sheet.type === 'tour'){
+      body = '<div class="shead"><h2>Tourwertung</h2>' + close + '</div>' + tourView();
+    }else if(sheet.type === 'delev'){
+      var dev = T.events.filter(function(ev){ return String(ev.id) === String(sheet.id); })[0];
+      body = '<div class="shead"><h2>Turnier löschen?</h2>' + close + '</div>' +
+        '<p>' + (dev ? esc(dev.name) : 'Dieses Turnier') + ' wird aus der Tourwertung entfernt.</p>' +
+        '<button class="primary" data-a="delevent">Aus der Tourwertung löschen</button>' +
+        '<button class="ghost" data-a="close">Behalten</button>';
     }else if(sheet.type === 'menu'){
       body = '<div class="shead"><h2>Menü</h2>' + close + '</div>' +
         '<button class="ghost" data-a="timerreset">Timer auf 60 Minuten zurücksetzen</button>' +
@@ -350,9 +435,26 @@ tr.cut td{border-bottom:2px solid var(--ink)}
     var t = e.target;
     if(t && t.hasAttribute && t.hasAttribute('data-names')){
       S.namesText = t.value; save();
+    }else if(t && t.hasAttribute && t.hasAttribute('data-evname')){
+      if(sheet) sheet.name = t.value;
+    }
+    if(t && t.hasAttribute && t.hasAttribute('data-names')){
       var c = document.getElementById('count'); if(c) c.textContent = countText(parseNames().length);
       var ri = document.getElementById('rinfo'); if(ri) ri.textContent = roundText(parseNames().length);
     }
+  });
+  app.addEventListener('change', function(e){
+    var t = e.target;
+    if(!t || !t.hasAttribute || !t.hasAttribute('data-import') || !t.files || !t.files[0]) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      try{
+        var obj = JSON.parse(fr.result);
+        if(obj && obj.v === 1 && Array.isArray(obj.events)){ T = obj; saveTour(); }
+      }catch(err){}
+      render();
+    };
+    fr.readAsText(t.files[0]);
   });
   app.addEventListener('click', function(e){
     if(e.target.classList && e.target.classList.contains('overlay')){ sheet = null; render(); return; }
@@ -385,7 +487,7 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       case 'report':
         if(sheet.draft.some(function(x){ return !x; })){ sheet.err = 'Jeder Spieler braucht einen Platz.'; break; }
         if(sheet.draft.indexOf(1) < 0){ sheet.err = 'Mindestens ein Spieler muss Platz 1 haben.'; break; }
-        curRound().tables[sheet.t].places = sheet.draft.slice(); sheet = null; break;
+        curRound().tables[sheet.t].places = sheet.draft.slice(); sheet = null; syncSaved(); break;
       case 'sim':
         curRound().tables.forEach(function(tb2){
           if(!tb2.places) tb2.places = shuffle(tb2.players.map(function(_, k){ return k + 1; }));
@@ -395,7 +497,30 @@ tr.cut td{border-bottom:2px solid var(--ink)}
       case 'reset':
         var keep = S.namesText, rr = S.rounds, ff = S.final;
         var aa = S.auto; S = fresh(); S.namesText = keep; S.rounds = rr; S.final = ff; S.auto = aa; sheet = null; break;
-      case 'sheet': sheet = {type:v}; break;
+      case 'saveevent':
+        if(S.savedId || !sheet) break;
+        var id = Date.now();
+        T.events.push({id:id, name:(sheet.name || '').trim() || ('Turnier ' + (T.events.length + 1)), t:id, rows:eventRows()});
+        saveTour(); S.savedId = id; sheet = null; S.tab = 'tour'; break;
+      case 'delevent':
+        T.events = T.events.filter(function(ev){ return String(ev.id) !== String(sheet.id); });
+        if(S.savedId && String(S.savedId) === String(sheet.id)) S.savedId = null;
+        saveTour(); sheet = (S.phase === 'setup') ? {type:'tour'} : null; break;
+      case 'newevent':
+        var kn = S.namesText, kr = S.rounds, kf = S.final, ka = S.auto;
+        S = fresh(); S.namesText = kn; S.rounds = kr; S.final = kf; S.auto = ka; sheet = null; break;
+      case 'export':
+        try{
+          var blob = new Blob([JSON.stringify(T, null, 1)], {type:'application/json'});
+          var link = document.createElement('a');
+          link.href = URL.createObjectURL(blob); link.download = 'tourwertung.json'; link.click();
+        }catch(err){}
+        break;
+      case 'sheet':
+        sheet = {type:v};
+        if(v === 'save') sheet.name = 'Turnier ' + (T.events.length + 1);
+        if(v === 'delev') sheet.id = b.getAttribute('data-id');
+        break;
       case 'close': sheet = null; break;
     }
     render();
