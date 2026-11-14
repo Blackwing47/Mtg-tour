@@ -1,0 +1,102 @@
+# Turnierregeln und App-Vorgaben
+
+Stand: 14.11.2026. Diese Datei hält fest, was für die Turnier-App entschieden wurde. Sie ist die Grundlage für den Code. Ändert sich eine Regel, wird sie zuerst hier geändert.
+
+## Rahmen
+
+- Format: Commander, vier Spieler pro Tisch, jeder gegen jeden.
+- Tour: sechs Turniere, alle zwei Monate, Start im Februar 2027. Die Punkte aller Turniere werden addiert, der Toursieger wird am Ende gekürt.
+- Erwartete Größe: 60 Teilnehmer, also 15 Tische.
+- Ein Handy pro Tisch liegt in der Tischmitte und führt den Zähler.
+- Partner-Commander sind erlaubt.
+
+## Ablauf eines Turniertags
+
+- Runde 1: Die Tische werden zufällig gelost.
+- Weitere Vorrunden: Spieler mit ähnlichem Punktestand sitzen zusammen (Schweizer System), Wiederholungen werden möglichst vermieden.
+- Standard sind drei Vorrunden, danach ein Finaltisch der vier Punktbesten.
+- Geht die Teilnehmerzahl nicht durch vier auf, gibt es einzelne Dreiertische.
+- Rangliste bei Punktgleichheit: erst Anzahl der Siege, dann Punkte der bisherigen Gegner.
+
+## Punkte pro Partie
+
+| Platz | Reguläres Ende | Ende durch Zeitablauf |
+|---|---|---|
+| 1 | 3 | 2 |
+| 2 | 2 | 1 |
+| 3 | 1 | 0 |
+| 4 | 0 | 0 |
+
+Geteilte Plätze sind möglich. Alle Spieler auf einem geteilten Platz bekommen dessen Punkte, der nächste Spieler rückt direkt dahinter auf. Beispiel: Plätze 1, 2, 2, 3 ergeben 3, 2, 2, 1 Punkte.
+
+## Ausscheiden
+
+Ein Spieler scheidet aus bei:
+
+- 0 oder weniger Lebenspunkten,
+- 10 Giftmarken,
+- 21 Kampfschaden von demselben Commander (Regel 903.10a). Partner zählen getrennt, verschiedene Gegner ebenfalls,
+- einem Sonderfall: konnte nicht ziehen, Niederlage durch Karteneffekt, Aufgabe.
+
+Wer ohne negative Lebenspunkte ausscheidet (Gift, Commander-Schaden, Sonderfall), wird auf 0 Lebenspunkte gesetzt.
+
+Wer allein ausscheidet, bekommt den schlechtesten noch freien Platz.
+
+Ob mehrere Spieler gleichzeitig ausscheiden, entscheidet der Tisch: Erst alle Schäden eintragen, dann einmal bestätigen. Alle, die in diesem Moment tödlich getroffen sind, gelten als gleichzeitig ausgeschieden.
+
+## Zusatzrunde bei gleichzeitigem Ausscheiden
+
+- Scheiden zwei oder drei Spieler gleichzeitig aus, spielen sie die gemeinsam frei werdenden Plätze unter sich aus.
+- Jeder von ihnen ist noch genau einmal am Zug, im Uhrzeigersinn ab dem Startspieler der Partie. Jeder Zug wird in der App bestätigt.
+- In der Zusatzrunde dürfen Lebenspunkte unter 0 sinken.
+- Danach gilt: Der höchste Lebenspunktestand bekommt den besten der offenen Plätze. Gleicher Stand bedeutet geteilter Platz.
+- Wer schon vorher ausgeschieden war, bleibt hinter dieser Gruppe.
+
+## Zeitlimit
+
+- Eine Runde dauert 60 Minuten. Der Timer läuft im Zähler mit und warnt in den letzten zehn Minuten.
+- Nach Ablauf beginnt die Schlussrunde: Der aktive Spieler beendet seinen Zug, danach ist jeder noch lebende Spieler genau einmal dran.
+- Danach werden die noch lebenden Spieler nach Lebenspunkten sortiert. Gleicher Stand bedeutet geteilter Platz. Bereits Ausgeschiedene behalten ihre hinteren Plätze.
+- Es gilt die Punktespalte „Ende durch Zeitablauf“.
+- Bleibt in der Schlussrunde nur ein Spieler übrig, hat er regulär gewonnen und bekommt 3 Punkte.
+
+## Sieg durch Karteneffekt
+
+Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig aus und spielen die Zusatzrunde um die übrigen Plätze.
+
+## Ergebnis melden
+
+- Am Ende der Partie schlägt der Zähler die Platzierung vor und fragt, ob das Ergebnis stimmt. Der Tisch kann Plätze korrigieren.
+- Nach der Bestätigung wird das Ergebnis an die Turnierleitung gemeldet. Die Turnierleitung sieht, welche Tische fertig sind.
+- Sind alle Tische gemeldet, werden die nächsten Paarungen ausgelost und angezeigt.
+
+## Zähler am Tisch
+
+- Vier Felder, je zwei Spieler an den langen Seiten des Handys, zu ihnen gedreht.
+- Lebenspunkte: Tippen ändert um 1, gedrückt halten um 10, dazu Knöpfe für 5.
+- Zählerfeld pro Spieler: Monarch, Initiative, Aufstieg, Tag/Nacht, Energie, Erfahrung, Schatz, Gift, Rad, Commander-Steuer (getrennt pro Commander), K.o. mit den Sonderfällen.
+- Commander-Schaden: eine Kachel pro gegnerischem Commander mit dessen Bild. Tippen zählt 1, gedrückt halten nimmt 1 zurück.
+- Commander-Schaden senkt standardmäßig auch die Lebenspunkte.
+- Jeder Schritt lässt sich rückgängig machen.
+
+## Profile und Decks
+
+- Jeder Spieler hat ein Profil mit Anzeigename.
+- Im Profil lassen sich beliebig viele Decks speichern: Name, ein oder zwei Commander, Kartenliste.
+- Für jedes Turnier meldet der Spieler eines seiner Decks an. Zum Turnierstart wird die Auswahl gesperrt.
+- Namen und Commander-Bilder stehen dadurch im Zähler bereit, sobald ein Tisch ausgelost ist.
+- Die Veranstalter bekommen Statistiken: gespielte Commander, Farbverteilung, Ergebnisse pro Commander und Farbe, meistgespielte Karten und Highlightkarten.
+
+## Weitere geplante Funktionen
+
+- Kartenscan: Kartenname per Kamera erkennen, aktuellen Kartentext, Übersetzung und offizielle Rulings von Scryfall anzeigen.
+- Regelsuche in den Comprehensive Rules.
+- Judge-Assistent: Karten auf einem Foto des Spielfelds in Reihenfolge antippen, die KI erklärt Stack und Trigger mit Regelverweis. Das letzte Wort hat ein Mensch.
+
+## Noch offen
+
+- Ist die vollständige Deckliste Pflicht oder freiwillig? Angenommen wird vorerst: freiwillig, nur der Commander ist Pflicht.
+- Sehen andere Spieler die gemeldeten Decks vor Turnierende?
+- Aufgabe: Bekommt der Spieler automatisch den letzten offenen Platz? Bisher wird er wie bei Gift auf 0 gesetzt.
+- Datenschutzerklärung und Einwilligung für die Anmeldung per E-Mail.
+- Zeitlimit und Regeln für den Finaltisch.

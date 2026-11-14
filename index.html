@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MTG Tour</title>
+<style>
+:root{--bg:#ecebf2;--surface:#fff;--ink:#1d1b2b;--muted:#5f5c73;--line:#cfcbdd}
+@media (prefers-color-scheme: dark){:root{--bg:#16141f;--surface:#232031;--ink:#efedf7;--muted:#a6a2bd;--line:#3a364e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.45}
+main{max-width:520px;margin:0 auto;padding:28px 16px 40px;display:flex;flex-direction:column;gap:14px}
+h1{margin:0;font-size:34px;line-height:1.1}
+p{margin:0;color:var(--muted)}
+a.card{display:block;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;color:inherit;text-decoration:none}
+a.card b{display:block;font-size:19px;margin-bottom:2px}
+a.card span{color:var(--muted);font-size:15px}
+</style>
+</head>
+<body>
+<main>
+  <h1>MTG Tour</h1>
+  <p>Commander-Turniere mit vier Spielern pro Tisch. Diese Seite zeigt den aktuellen Stand der App.</p>
+  <a class="card" href="prototyp/pod-zaehler.html"><b>Pod-Zähler</b><span>Lebenspunkte, Zähler, Commander-Schaden, Zusatzrunde und Zeitlimit für einen Tisch.</span></a>
+  <a class="card" href="prototyp/turnierleitung.html"><b>Turnierleitung</b><span>Teilnehmer, Auslosung, Tischmeldungen, Rundentimer und Rangliste.</span></a>
+  <p>Beide Teile sind Prototypen und speichern ihre Daten nur auf dem jeweiligen Gerät.</p>
+</main>
+</body>
+</html>
