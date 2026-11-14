@@ -134,6 +134,8 @@ Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig
 - Sideboard, Maybeboard und ähnliche Abschnitte werden nicht mitgezählt.
 - Die Sammlung wird aus einer CSV-Datei eingelesen, zum Beispiel aus ManaBox. Im Deck steht dann, welche Karten in der Sammlung fehlen.
 - Die Sammlung ist ein Bildraster: Jede Kachel ist eine Fassung mit Kartenbild, Anzahl, Foil-Kennzeichen, Edition und Kartennummer. Die Suche zeigt darüber die Gesamtzahl der gefundenen Karten.
+- Preise kommen von Scryfall in Euro und sind Richtwerte für den angegebenen Tag. Die Sammlung zeigt den Preis pro Fassung (Foil und Etched getrennt) und den Gesamtwert, jedes Deck seinen Deckwert. Preise lassen sich jederzeit aktualisieren.
+- Der Deckwert rechnet mit der Fassung aus der Deckliste, nicht mit der günstigsten Fassung. Standardländer ohne Preis zählen nicht als fehlend.
 - Jede Karte in Deck und Sammlung lässt sich antippen: Die App zeigt das Kartenbild, Kosten, Typ und Regeltext sowie einen Link zu Scryfall für Rulings.
 - Im Zähler lässt sich pro Platz ein gespeichertes Deck wählen. Commander, Partner und Bilder werden übernommen.
 - Ein direktes Verknüpfen von Konten bei Moxfield oder Archidekt ist nicht vorgesehen: Archidekt sperrt Abrufe aus fremden Webseiten, ein Abruf über einen Deck-Link bräuchte den eigenen Server.

@@ -105,7 +105,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
   var KEY = 'mtg-tour-decks-v1';
   var API = 'https://api.scryfall.com';
   var app = document.getElementById('app');
-  var V = {view:'list', id:null, text:'', name:'', busy:'', err:'', q:''};
+  var V = {view:'list', id:null, text:'', name:'', busy:'', err:'', q:'', pbusy:''};
   var sheet = null;
 
   function load(){
@@ -263,6 +263,74 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     }
     return cards;
   }
+  function priceOf(card, f){
+    var p = card.prices || {};
+    var v = f === 'Etched' ? (p.eur_etched || p.eur_foil || p.eur) : f === 'Foil' ? (p.eur_foil || p.eur) : (p.eur || p.eur_foil || p.eur_etched);
+    v = parseFloat(v);
+    return isFinite(v) ? v : null;
+  }
+  function eur(v){ return (v === null || v === undefined) ? '' : v.toLocaleString('de-DE', {style:'currency', currency:'EUR'}); }
+  function isUuid(s){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(low(s)); }
+  function cardMap(data){
+    var map = {};
+    (data || []).forEach(function(c){
+      map['id:' + c.id] = c; map['sc:' + c.set + '/' + low(c.collector_number)] = c;
+      if(!map['n:' + low(c.name)]) map['n:' + low(c.name)] = c;
+      if(!map['n:' + low(front(c.name))]) map['n:' + low(front(c.name))] = c;
+    });
+    return map;
+  }
+  function day(t){ return new Date(t).toLocaleDateString('de-DE'); }
+  var pricing = false;
+  async function loadCollPrices(){
+    if(pricing || !D.coll) return;
+    var list = [];
+    D.coll.rows.forEach(function(r){ (r.p || []).forEach(function(p){ list.push({n:r.n, p:p}); }); });
+    if(!list.length) return;
+    pricing = true; V.pbusy = 'Preise werden geladen …'; render();
+    try{
+      for(var a = 0; a < list.length; a += 75){
+        var part = list.slice(a, a + 75);
+        var ids = part.map(function(x){
+          if(isUuid(x.p.id)) return {id:low(x.p.id)};
+          if(x.p.s && x.p.c) return {set:low(x.p.s), collector_number:x.p.c};
+          return {name:front(x.n)};
+        });
+        var map = cardMap((await postCollection(ids)).data);
+        part.forEach(function(x, k){ var c = map[identKey(ids[k])]; x.p.pr = c ? priceOf(c, x.p.f) : null; });
+        V.pbusy = 'Preise werden geladen: ' + Math.min(a + 75, list.length) + ' von ' + list.length + ' Fassungen …';
+        var el = document.getElementById('pbusy'); if(el) el.textContent = V.pbusy;
+        await wait(120);
+      }
+      D.coll.pt = Date.now(); save(); V.pbusy = '';
+    }catch(e){ V.pbusy = ''; V.err = 'Die Preise konnten nicht geladen werden. Versuch es später noch einmal.'; }
+    pricing = false; render();
+  }
+  async function loadDeckPrices(d){
+    if(pricing || !d) return;
+    pricing = true; V.pbusy = 'Preise werden geladen …'; render();
+    try{
+      for(var a = 0; a < d.cards.length; a += 75){
+        var part = d.cards.slice(a, a + 75);
+        var ids = part.map(function(x){ return isUuid(x.sid) ? {id:low(x.sid)} : {name:front(x.name)}; });
+        var map = cardMap((await postCollection(ids)).data);
+        part.forEach(function(x, k){ var c = map[identKey(ids[k])]; x.pr = c ? priceOf(c, '') : null; });
+        await wait(120);
+      }
+      d.pt = Date.now(); save(); V.pbusy = '';
+    }catch(e){ V.pbusy = ''; V.err = 'Die Preise konnten nicht geladen werden. Versuch es später noch einmal.'; }
+    pricing = false; render();
+  }
+  function deckValue(d){
+    var sum = 0, none = 0, any = false;
+    d.cards.forEach(function(x){ if(typeof x.pr === 'number'){ sum += x.pr * x.q; any = true; } else if(!/Basic/.test(x.t)) none++; });
+    return {sum:sum, none:none, any:any};
+  }
+  function collValue(rows){
+    var sum = 0, none = 0, any = false;
+    rows.forEach(function(r){ (r.p || []).forEach(function(p){ if(typeof p.pr === 'number'){ sum += p.pr * p.q; any = true; } else none++; }); });
+    return {sum:sum, none:none, any:any};
+  }
   function buildDeck(entries, cards, name){
     var byOid = {}, order = [], miss = [];
     entries.forEach(function(e, i){
@@ -271,7 +339,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       var t = c.type_line || '', ot = otext(c);
       var x = byOid[c.oracle_id];
       if(!x){
-        x = byOid[c.oracle_id] = {q:0, name:c.name, oid:c.oracle_id, sid:c.id || '', ci:(c.color_identity || []).join(''), t:t, cmc:c.cmc || 0,
+        x = byOid[c.oracle_id] = {q:0, name:c.name, oid:c.oracle_id, sid:c.id || '', pr:priceOf(c, ''), ci:(c.color_identity || []).join(''), t:t, cmc:c.cmc || 0,
           lg:(c.legalities || {}).commander || '', any:/A deck can have any number of cards named/i.test(ot)};
         if((/Legendary/.test(t) && /Creature/.test(t)) || /can be your commander/i.test(ot) || /Background/.test(t)){ x.cc = 1; x.a = cardArt(c); }
         order.push(x);
@@ -281,7 +349,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     });
     var cmd = order.filter(function(x){ return x.c; });
     if(!name) name = cmd.length ? cmd.map(function(x){ return front(x.name); }).join(' und ') : 'Deck ' + (D.decks.length + 1);
-    return {id:Date.now(), name:name, t:Date.now(), cards:order, miss:miss};
+    return {id:Date.now(), name:name, t:Date.now(), pt:Date.now(), cards:order, miss:miss};
   }
   function cmds(deck){ return deck.cards.filter(function(x){ return x.c; }); }
 
@@ -338,7 +406,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     return '<button class="card" data-a="open" data-id="' + d.id + '">' +
       (art ? '<img src="' + esc(art) + '" alt="">' : '<i class="noart"></i>') +
       '<span><b>' + esc(d.name) + '</b><small>' + dots(identity(d)) + (cm.length ? esc(cm.map(function(x){ return front(x.name); }).join(' und ')) : 'Kein Commander gewählt') + '</small>' +
-      '<small>' + total(d) + ' Karten, ' + (bad ? bad + (bad === 1 ? ' Hinweis' : ' Hinweise') : 'alles in Ordnung') + '</small></span></button>';
+      '<small>' + (deckValue(d).any ? eur(deckValue(d).sum) + ', ' : '') + total(d) + ' Karten, ' + (bad ? bad + (bad === 1 ? ' Hinweis' : ' Hinweise') : 'alles in Ordnung') + '</small></span></button>';
   }
   function viewList(){
     return '<main class="page"><a class="back" href="../index.html">Zur Startseite</a><h1>Decks und Sammlung</h1>' +
@@ -346,11 +414,11 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       (D.decks.length ? D.decks.map(deckCard).join('') : '<p class="hint">Noch kein Deck gespeichert.</p>') +
       '<button class="primary" data-a="go" data-v="import">Deck hinzufügen</button>' +
       '<h2>Sammlung</h2>' +
-      (D.coll ? '<button class="card" data-a="go" data-v="coll"><span><b>' + D.coll.total + ' Karten</b><small>' + D.coll.rows.length + ' verschiedene, eingelesen am ' + new Date(D.coll.t).toLocaleDateString('de-DE') + '</small></span></button>'
+      (D.coll ? '<button class="card" data-a="go" data-v="coll"><span><b>' + D.coll.total + ' Karten' + (collValue(D.coll.rows).any ? ', ' + eur(collValue(D.coll.rows).sum) : '') + '</b><small>' + D.coll.rows.length + ' verschiedene, eingelesen am ' + new Date(D.coll.t).toLocaleDateString('de-DE') + '</small></span></button>'
         : '<p class="hint">Noch keine Sammlung eingelesen.</p>') +
       '<label class="ghost">' + (D.coll ? 'Sammlung neu einlesen (CSV-Datei)' : 'Sammlung einlesen (CSV-Datei)') + '<input type="file" accept=".csv,text/csv,text/plain" hidden data-collfile></label>' +
       (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '') +
-      '<p class="hint">Alles wird nur auf diesem Gerät gespeichert. Kartendaten und Bilder kommen von Scryfall. © Wizards of the Coast.</p></main>';
+      '<p class="hint">Alles wird nur auf diesem Gerät gespeichert. Kartendaten, Bilder und Preise kommen von Scryfall. Die Preise sind Richtwerte in Euro und gelten für den angegebenen Tag. © Wizards of the Coast.</p></main>';
   }
   function viewImport(){
     return '<main class="page"><button class="back" data-a="go" data-v="list">Zurück</button><h1>Deck hinzufügen</h1>' +
@@ -382,6 +450,13 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       '<p>' + dots(id) + colorNames(cm.length ? id : '') + '</p>' +
       '<div class="stats"><div class="stat"><b>' + total(d) + '</b><span>Karten</span></div><div class="stat"><b>' + lands + '</b><span>Länder</span></div>' +
       '<div class="stat"><b>' + (nonland ? (cmcSum / nonland).toFixed(1).replace('.', ',') : '0') + '</b><span>Manawert im Schnitt</span></div></div>' +
+      (function(){
+        var dv = deckValue(d);
+        return '<div class="cmdrow"><span><b>Deckwert: ' + (dv.any ? eur(dv.sum) : 'noch nicht geladen') + '</b>' +
+          (dv.any ? '<small>Preise vom ' + day(d.pt || d.t) + (dv.none ? ', ' + dv.none + (dv.none === 1 ? ' Karte' : ' Karten') + ' ohne Preis' : '') + '</small>' : '') + '</span>' +
+          '<button class="mini" data-a="deckprices"' + (pricing ? ' disabled' : '') + '>' + (dv.any ? 'Aktualisieren' : 'Preise laden') + '</button></div>' +
+          (V.pbusy ? '<p role="status" id="pbusy">' + esc(V.pbusy) + '</p>' : '') + (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '');
+      })() +
       '<h2>Prüfung</h2><ul class="checks">' + checks(d).map(function(c){
         return '<li class="' + (c.ok ? 'ok' : 'no') + '"><b>' + (c.ok ? 'OK' : 'Achtung') + '</b><span>' + esc(c.text) + '</span></li>';
       }).join('') + '</ul>';
@@ -394,7 +469,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       var list = d.cards.filter(function(x){ return groupOf(x) === gi; }).sort(function(a, b){ return a.name.localeCompare(b.name); });
       if(!list.length) return;
       h += '<h3>' + g[0] + ' (' + list.reduce(function(s, x){ return s + x.q; }, 0) + ')</h3><ul class="list">' + list.map(function(x){
-        return '<li><button data-a="card" data-n="' + esc(x.name) + '" data-sid="' + esc(x.sid || '') + '"><i>' + x.q + '</i><span>' + esc(x.name) + '</span>' + (D.coll && !cl[low(front(x.name))] ? '<em>nicht in Sammlung</em>' : '') + '</button></li>';
+        return '<li><button data-a="card" data-n="' + esc(x.name) + '" data-sid="' + esc(x.sid || '') + '"><i>' + x.q + '</i><span>' + esc(x.name) + '</span>' + '<em>' + (D.coll && !cl[low(front(x.name))] ? 'nicht in Sammlung' + (typeof x.pr === 'number' ? ' · ' : '') : '') + (typeof x.pr === 'number' ? eur(x.pr) : '') + '</em></button></li>';
       }).join('') + '</ul>';
     });
     return h + '<button class="ghost warn" data-a="sheet" data-v="del">Deck löschen</button>' +
@@ -419,14 +494,15 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       var ps = r.p && r.p.length ? r.p : [{q:r.q}];
       ps.forEach(function(p, k){ tiles.push({n:r.n, p:p, k:k}); });
     });
-    var head = q ? '<p><b>' + count + (count === 1 ? ' Karte' : ' Karten') + '</b> in ' + tiles.length + (tiles.length === 1 ? ' Fassung' : ' Fassungen') + (names > 1 ? ', ' + names + ' verschiedene Karten' : '') + '.</p>' : '';
+    var cv = collValue(rows);
+    var head = q ? '<p><b>' + count + (count === 1 ? ' Karte' : ' Karten') + '</b> in ' + tiles.length + (tiles.length === 1 ? ' Fassung' : ' Fassungen') + (names > 1 ? ', ' + names + ' verschiedene Karten' : '') + (cv.any ? ', Wert ' + eur(cv.sum) : '') + '.</p>' : '';
     return head + '<div class="tiles">' + tiles.slice(0, 40).map(function(t){
       var u = imgUrl(t.n, t.p), p = t.p;
       var where = p.s ? p.s.toUpperCase() + (p.c ? ' #' + p.c : '') : 'Edition unbekannt';
       return '<button class="tile" data-a="card" data-n="' + esc(t.n) + '" data-k="' + t.k + '" aria-label="' + esc(t.n) + ', ' + esc(where) + (p.f ? ', ' + p.f : '') + ', ' + p.q + ' Stück">' +
         '<span class="im"><img loading="lazy" src="' + esc(u.src) + '" alt=""' + (u.alt ? ' data-alt="' + esc(u.alt) + '" onerror="this.onerror=null;this.src=this.dataset.alt"' : '') + '>' +
         '<span class="qty">' + p.q + '</span>' + (p.f ? '<span class="foil">' + esc(p.f) + '</span>' : '') + '</span>' +
-        '<b>' + esc(front(t.n)) + '</b><small>' + esc(where) + (p.l ? ', ' + esc(p.l) : '') + '</small></button>';
+        '<b>' + esc(front(t.n)) + '</b><small>' + esc(where) + (p.l ? ', ' + esc(p.l) : '') + '</small>' + (typeof p.pr === 'number' ? '<small style="display:block;color:inherit;font-weight:600">' + eur(p.pr) + (p.q > 1 ? ' je Stück' : '') + '</small>' : '') + '</button>';
     }).join('') + '</div>' +
       (tiles.length > 40 ? '<p class="hint">' + (tiles.length - 40) + ' weitere Fassungen. Grenze die Suche ein.</p>' : '');
   }
@@ -434,6 +510,13 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     if(!D.coll){ V.view = 'list'; return viewList(); }
     return '<main class="page"><button class="back" data-a="go" data-v="list">Zurück</button><h1>Sammlung</h1>' +
       '<p class="lead">' + D.coll.total + ' Karten, ' + D.coll.rows.length + ' verschiedene. Jede Kachel ist eine Fassung, die Zahl zeigt, wie oft du sie hast. Tippe eine Kachel an, um die Karte zu lesen.</p>' +
+      (function(){
+        var cv = collValue(D.coll.rows);
+        return '<div class="cmdrow"><span><b>Gesamtwert: ' + (cv.any ? eur(cv.sum) : 'noch nicht geladen') + '</b>' +
+          (cv.any ? '<small>Preise vom ' + day(D.coll.pt || D.coll.t) + (cv.none ? ', ' + cv.none + (cv.none === 1 ? ' Fassung' : ' Fassungen') + ' ohne Preis' : '') + '</small>' : '') + '</span>' +
+          '<button class="mini" data-a="collprices"' + (pricing ? ' disabled' : '') + '>' + (cv.any ? 'Aktualisieren' : 'Preise laden') + '</button></div>' +
+          (V.pbusy ? '<p role="status" id="pbusy">' + esc(V.pbusy) + '</p>' : '') + (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '');
+      })() +
       '<input class="txt" type="search" data-collq value="' + esc(V.q) + '" placeholder="Karte suchen" aria-label="Karte in der Sammlung suchen">' +
       '<div id="collrows">' + collRows(V.q) + '</div>' +
       '<button class="ghost warn" data-a="sheet" data-v="delcoll">Sammlung löschen</button></main>';
@@ -470,12 +553,13 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
             '<div class="ty">' + esc(f.type_line || c.type_line || '') + (pt ? ' · ' + esc(pt) : '') + '</div>' +
             '<div class="ot">' + esc(f.oracle_text || '') + '</div>';
         });
-        body += '</div><p class="hint">' + esc(c.set_name || '') + ' (' + esc((c.set || '').toUpperCase()) + ') Nr. ' + esc(c.collector_number || '') + (c.artist ? ', Illustration: ' + esc(c.artist) : '') + '. © Wizards of the Coast, Daten und Bild über Scryfall.</p>';
+        body += '</div><p class="hint">' + esc(c.set_name || '') + ' (' + esc((c.set || '').toUpperCase()) + ') Nr. ' + esc(c.collector_number || '') + (c.artist ? ', Illustration: ' + esc(c.artist) : '') + '. © Wizards of the Coast, Daten und Bild über Scryfall.</p>' +
+          (priceOf(c, '') !== null ? '<p>Aktueller Preis: <b>' + eur(priceOf(c, '')) + '</b>' + (c.prices && c.prices.eur_foil ? ', Foil ' + eur(parseFloat(c.prices.eur_foil)) : '') + '</p>' : '');
       }
       if(sheet.prints && sheet.prints.length){
         body += '<h2>In deiner Sammlung: ' + sheet.owned + '</h2>' + sheet.prints.map(function(p, k){
           var label = (p.sn || (p.s ? p.s.toUpperCase() : 'Unbekannte Edition')) + (p.sn && p.s ? ' (' + p.s.toUpperCase() + ')' : '') + (p.c ? ' Nr. ' + p.c : '');
-          return '<button class="opt" data-a="print" data-k="' + k + '" aria-pressed="' + (sheet.sel === k) + '"><span>' + esc(label) + (p.f || p.l ? '<br><small>' + esc([p.f, p.l].filter(Boolean).join(', ')) + '</small>' : '') + '</span><span>' + p.q + '×</span></button>';
+          return '<button class="opt" data-a="print" data-k="' + k + '" aria-pressed="' + (sheet.sel === k) + '"><span>' + esc(label) + (p.f || p.l ? '<br><small>' + esc([p.f, p.l].filter(Boolean).join(', ')) + '</small>' : '') + '</span><span>' + p.q + '×' + (typeof p.pr === 'number' ? '<br><small>' + eur(p.pr) + '</small>' : '') + '</span></button>';
         }).join('');
       }else if(D.coll){
         body += '<p class="hint">Diese Karte steht nicht in deiner Sammlung.</p>';
@@ -541,6 +625,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     D.coll = {t:Date.now(), total:total, rows:Object.keys(m).sort(function(a, b){ return a.localeCompare(b); }).map(function(n){ return m[n]; })};
     if(!save()){ D.coll = prev; V.err = 'Die Sammlung ist zu groß für den Speicher dieses Geräts.'; render(); return; }
     V.err = ''; V.view = 'coll'; V.q = ''; render(); window.scrollTo(0, 0);
+    loadCollPrices();
   }
   function collRow(name){
     if(!D.coll) return null;
@@ -610,6 +695,8 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       case 'go': V.view = v; V.err = ''; sheet = null; window.scrollTo(0, 0); break;
       case 'open': V.view = 'deck'; V.id = b.getAttribute('data-id'); window.scrollTo(0, 0); break;
       case 'import': runImport(); return;
+      case 'collprices': V.err = ''; loadCollPrices(); return;
+      case 'deckprices': V.err = ''; loadDeckPrices(d); return;
       case 'card': openCard(b.getAttribute('data-n'), b.getAttribute('data-sid') || '', b.hasAttribute('data-k') ? +b.getAttribute('data-k') : -1); return;
       case 'print':
         if(sheet && sheet.type === 'card'){ sheet.sel = +b.getAttribute('data-k'); loadCard(sheet.prints[sheet.sel]); }
