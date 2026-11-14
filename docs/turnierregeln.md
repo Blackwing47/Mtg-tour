@@ -138,7 +138,9 @@ Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig
 - Der Deckwert rechnet mit der Fassung aus der Deckliste, nicht mit der günstigsten Fassung. Standardländer ohne Preis zählen nicht als fehlend.
 - Jede Karte in Deck und Sammlung lässt sich antippen: Die App zeigt das Kartenbild, Kosten, Typ und Regeltext sowie einen Link zu Scryfall für Rulings.
 - Im Zähler lässt sich pro Platz ein gespeichertes Deck wählen. Commander, Partner und Bilder werden übernommen.
-- Ein direktes Verknüpfen von Konten bei Moxfield oder Archidekt ist nicht vorgesehen: Archidekt sperrt Abrufe aus fremden Webseiten, ein Abruf über einen Deck-Link bräuchte den eigenen Server.
+- Archidekt: Der Spieler trägt seinen Nutzernamen oder einen Deck-Link ein. Die App holt die öffentlichen Decks über die eigene Serverfunktion `api/archidekt.js` und übernimmt Edition und Kartennummer. Private Decks sind nicht erreichbar, ein Passwort wird nie abgefragt.
+- Moxfield: Die Schnittstelle ist privat. Zugang gibt es nur, wenn der Moxfield-Support eine App freischaltet. Bis dahin läuft der Import über den Textexport.
+- ManaBox: Decks und Sammlung kommen als Text- oder CSV-Export in die App.
 - Im Prototyp liegen Decks und Sammlung nur auf dem jeweiligen Gerät.
 
 ## Konten und Rollen

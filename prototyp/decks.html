@@ -105,7 +105,8 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
   var KEY = 'mtg-tour-decks-v1';
   var API = 'https://api.scryfall.com';
   var app = document.getElementById('app');
-  var V = {view:'list', id:null, text:'', name:'', busy:'', err:'', q:'', pbusy:''};
+  var V = {view:'list', id:null, text:'', name:'', busy:'', err:'', q:'', pbusy:'', auser:'', adecks:null, abusy:'', aerr:''};
+  try{ V.auser = localStorage.getItem('mtg-tour-archidekt-user') || ''; }catch(e){}
   var sheet = null;
 
   function load(){
@@ -218,7 +219,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       set:card.set_name || '', year:(card.released_at || '').slice(0,4), oracle:card.oracle_id || '', en:card.name || '', label:card.name || ''};
   }
   function ident(e, lvl){
-    if(lvl === 0 && e.id) return {id:e.id};
+    if(lvl === 0 && e.id && isUuid(e.id)) return {id:low(e.id)};
     if(lvl === 0 && e.set && e.cn) return {set:low(e.set), collector_number:e.cn};
     return {name:front(e.name)};
   }
@@ -429,6 +430,14 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '') +
       (V.busy ? '<p role="status">' + esc(V.busy) + '</p>' : '') +
       '<button class="primary" data-a="import"' + (V.busy ? ' disabled' : '') + '>Liste prüfen und speichern</button>' +
+      '<h2>Von Archidekt holen</h2>' +
+      '<p class="hint">Trage deinen Archidekt-Nutzernamen ein, dann zeigt die App deine öffentlichen Decks. Ein Link zu einem einzelnen Deck geht auch. Private Decks sind nicht erreichbar.</p>' +
+      '<input class="txt" type="text" maxlength="120" autocapitalize="off" autocomplete="off" data-archuser value="' + esc(V.auser || '') + '" placeholder="Nutzername oder Deck-Link" aria-label="Archidekt-Nutzername oder Deck-Link">' +
+      '<button class="ghost" data-a="archlist"' + (V.abusy || V.busy ? ' disabled' : '') + '>Bei Archidekt suchen</button>' +
+      (V.aerr ? '<p class="err">' + esc(V.aerr) + '</p>' : '') + (V.abusy ? '<p role="status">' + esc(V.abusy) + '</p>' : '') +
+      (V.adecks ? (V.adecks.length ? '<p class="hint">' + V.adecks.length + (V.adecks.length === 1 ? ' öffentliches Deck' : ' öffentliche Decks') + ' gefunden. Tippe eins an, um es zu übernehmen.</p>' + V.adecks.map(function(x){
+        return '<button class="card" data-a="archdeck" data-id="' + esc(x.id) + '" data-n="' + esc(x.name) + '"' + (V.busy || V.abusy ? ' disabled' : '') + '><span><b>' + esc(x.name) + '</b>' + (x.updated ? '<small>geändert am ' + day(x.updated) + '</small>' : '') + '</span></button>';
+      }).join('') : '<p class="hint">Unter diesem Namen wurden keine öffentlichen Decks gefunden.</p>') : '') +
       '<h3>So kommst du an die Liste</h3>' +
       '<p class="hint">Moxfield, Archidekt, ManaBox und die meisten anderen Apps haben im Deck eine Funktion zum Exportieren oder Teilen. Wähle dort das Textformat und kopiere die Liste.</p>' +
       '<p class="hint">Enthält die Liste Edition und Kartennummer, übernimmt die App genau diese Version und damit auch das Bild deines Commanders.</p></main>';
@@ -582,17 +591,13 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
   }
 
   /* ---------- Abläufe ---------- */
-  async function runImport(){
-    var text = V.text.trim();
-    if(!text){ V.err = 'Füge zuerst eine Deckliste ein.'; render(); return; }
-    var entries = isCSV(text) ? csvEntries(text) : parseText(text);
-    if(!entries.length){ V.err = 'In diesem Text wurde keine Kartenzeile erkannt. Jede Zeile braucht Anzahl und Kartenname.'; render(); return; }
+  async function importEntries(entries, name){
     V.err = ''; V.busy = 'Karten werden bei Scryfall nachgeschlagen …'; render();
     try{
       var cards = await resolveAll(entries, function(done, all){
         V.busy = done + ' von ' + all + ' Zeilen erkannt …'; var el = app.querySelector('[role="status"]'); if(el) el.textContent = V.busy;
       });
-      var deck = buildDeck(entries, cards, V.name.trim());
+      var deck = buildDeck(entries, cards, name);
       if(!deck.cards.length){ V.busy = ''; V.err = 'Scryfall hat keine der Karten erkannt. Die Liste sollte englische Kartennamen enthalten.'; render(); return; }
       D.decks.push(deck);
       if(!save()){ D.decks.pop(); V.busy = ''; V.err = 'Der Speicher dieses Geräts ist voll. Lösche ein Deck oder die Sammlung.'; render(); return; }
@@ -602,6 +607,42 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     }catch(e){
       V.busy = ''; V.err = 'Scryfall ist gerade nicht erreichbar. Versuch es gleich noch einmal.'; render();
     }
+  }
+  async function runImport(){
+    var text = V.text.trim();
+    if(!text){ V.err = 'Füge zuerst eine Deckliste ein.'; render(); return; }
+    var entries = isCSV(text) ? csvEntries(text) : parseText(text);
+    if(!entries.length){ V.err = 'In diesem Text wurde keine Kartenzeile erkannt. Jede Zeile braucht Anzahl und Kartenname.'; render(); return; }
+    await importEntries(entries, V.name.trim());
+  }
+  /* ---------- Archidekt über die eigene Serverfunktion ---------- */
+  async function archGet(query){
+    var r = await fetch('/api/archidekt?' + query, {headers:{'Accept':'application/json'}});
+    var data = null;
+    try{ data = await r.json(); }catch(e){}
+    if(!r.ok || !data) throw new Error((data && data.error) || 'Der Abruf von Archidekt hat nicht geklappt.');
+    return data;
+  }
+  async function archList(){
+    var raw = (V.auser || '').trim(), m = raw.match(/archidekt\.com\/decks\/(\d+)/i);
+    if(m) return archImport(m[1], '');
+    var user = raw.replace(/^.*archidekt\.com\/(?:u|user)\//i, '').replace(/[\/?#].*$/, '').replace(/^@/, '');
+    if(!user){ V.aerr = 'Trage deinen Archidekt-Nutzernamen oder den Link zu einem Deck ein.'; render(); return; }
+    V.aerr = ''; V.abusy = 'Decks werden bei Archidekt gesucht …'; V.adecks = null; render();
+    try{
+      var data = await archGet('user=' + encodeURIComponent(user));
+      V.adecks = data.decks || []; V.abusy = '';
+      try{ localStorage.setItem('mtg-tour-archidekt-user', user); }catch(e){}
+    }catch(e){ V.abusy = ''; V.aerr = e.message; }
+    render();
+  }
+  async function archImport(id, name){
+    V.aerr = ''; V.abusy = 'Deck wird von Archidekt geholt …'; render();
+    try{
+      var data = await archGet('deck=' + encodeURIComponent(id));
+      V.abusy = '';
+      await importEntries(data.entries || [], name || data.name || '');
+    }catch(e){ V.abusy = ''; V.aerr = e.message; render(); }
   }
   function readFile(input, done){
     if(!input.files || !input.files[0]) return;
@@ -678,6 +719,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     var t = e.target; if(!t || !t.hasAttribute) return;
     if(t.hasAttribute('data-decktext')) V.text = t.value;
     else if(t.hasAttribute('data-deckname')) V.name = t.value;
+    else if(t.hasAttribute('data-archuser')) V.auser = t.value;
     else if(t.hasAttribute('data-rename')){ var d = deckById(V.id); if(d){ d.name = t.value.trim() || d.name; save(); } }
     else if(t.hasAttribute('data-collq')){ V.q = t.value; var box = document.getElementById('collrows'); if(box) box.innerHTML = collRows(V.q); }
   });
@@ -695,6 +737,8 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       case 'go': V.view = v; V.err = ''; sheet = null; window.scrollTo(0, 0); break;
       case 'open': V.view = 'deck'; V.id = b.getAttribute('data-id'); window.scrollTo(0, 0); break;
       case 'import': runImport(); return;
+      case 'archlist': archList(); return;
+      case 'archdeck': archImport(b.getAttribute('data-id'), b.getAttribute('data-n')); return;
       case 'collprices': V.err = ''; loadCollPrices(); return;
       case 'deckprices': V.err = ''; loadDeckPrices(d); return;
       case 'card': openCard(b.getAttribute('data-n'), b.getAttribute('data-sid') || '', b.hasAttribute('data-k') ? +b.getAttribute('data-k') : -1); return;
