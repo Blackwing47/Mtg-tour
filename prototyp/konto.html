@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Konto und Turniere</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ecebf2; --surface:#ffffff; --ink:#1d1b2b; --muted:#5f5c73; --line:#cfcbdd;
+  --danger:#b8241c; --on-ink:#ffffff; --warn-bg:#f7e3b5; --warn-ink:#4a3605; --ok-bg:#d2ecd1; --ok-ink:#173f1c;
+  --ui:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#16141f; --surface:#232031; --ink:#efedf7; --muted:#a6a2bd; --line:#3a364e;
+    --danger:#ff7a6e; --on-ink:#16141f; --warn-bg:#4b3b0e; --warn-ink:#ffeebd; --ok-bg:#1c4023; --ok-ink:#d9f5d9;
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+h1,h2,h3,p,ul{margin:0}
+ul{padding:0;list-style:none}
+a{color:inherit}
+.page{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top,0px)) 16px 40px;display:flex;flex-direction:column;gap:12px}
+h1{font-family:var(--num);font-weight:700;font-size:40px;line-height:1}
+h2{font-size:19px;font-weight:600;margin-top:10px}
+h3{font-size:14px;font-weight:600;color:var(--muted);margin-top:6px}
+.lead,.hint{color:var(--muted)}
+.hint{font-size:14px}
+.err{color:var(--danger);font-weight:500}
+.msg{background:var(--ok-bg);color:var(--ok-ink);border-radius:12px;padding:8px 10px}
+.back{align-self:flex-start;color:var(--muted);font-weight:500;padding:6px 0}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:500}
+input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;width:100%;min-height:48px}
+.primary{background:var(--ink);color:var(--on-ink);border-radius:16px;min-height:52px;font-weight:600;font-size:17px;width:100%;padding:0 14px}
+.primary:disabled,.ghost:disabled{opacity:.5}
+.ghost{border:1.5px solid var(--line);background:var(--surface);border-radius:16px;min-height:48px;font-weight:500;width:100%;padding:0 14px}
+.ghost.warn{color:var(--danger)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.box b{font-size:17px}
+.box small{color:var(--muted);font-size:13px;display:block}
+.row{display:flex;gap:8px;align-items:center}
+.row > span{flex:1;min-width:0}
+.mini{border:1.5px solid var(--line);border-radius:10px;min-height:40px;padding:0 12px;background:var(--bg);font-weight:500;flex:none}
+.mini.warn{color:var(--danger)}
+.tag{display:inline-block;border-radius:99px;padding:1px 9px;font-size:13px;font-weight:600}
+.tag.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.tag.no{background:var(--warn-bg);color:var(--warn-ink)}
+.card{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.card img,.card .noart{width:76px;height:56px;border-radius:10px;object-fit:cover;flex:none;background:var(--line)}
+.card span{min-width:0;flex:1}
+.card b{display:block;font-size:17px}
+.card small{display:block;color:var(--muted);font-size:13px}
+.dots{display:inline-flex;gap:4px;vertical-align:middle;margin-right:6px}
+.dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.35)}
+.cW{background:#f4ecc8}.cU{background:#3b82c4}.cB{background:#3a3340}.cR{background:#d04a35}.cG{background:#2f8f55}.cC{background:#b8b4c4}
+.checks li{display:flex;gap:8px;align-items:flex-start;border-radius:12px;padding:8px 10px;margin-bottom:6px;font-size:15px}
+.checks .ok{background:var(--ok-bg);color:var(--ok-ink)}
+.checks .no{background:var(--warn-bg);color:var(--warn-ink)}
+.checks b{flex:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.stat b{display:block;font-family:var(--num);font-size:24px;line-height:1.1}
+.stat span{font-size:13px;color:var(--muted)}
+.list li{border-bottom:1px solid var(--line);font-size:15px}
+.list li a{display:flex;gap:10px;padding:9px 2px;align-items:baseline;text-decoration:none}
+.list li i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--muted);min-width:22px;text-align:right}
+.list li em{font-style:normal;color:var(--muted);margin-left:auto;font-size:13px;white-space:nowrap}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tabs button{height:44px;border-radius:12px;border:1.5px solid var(--line);font-weight:600;background:var(--surface)}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+</style>
+</head>
+<body>
+<div id="app"><main class="page"><p>Wird geladen …</p></main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  'use strict';
+  var SB_URL = 'https://bhihuamtmnyguelcmsst.supabase.co';
+  var SB_KEY = 'sb_publishable_QxuC8ENxUWBdLLMDAMy83Q_UVbNhq8e';
+  var LKEY = 'mtg-tour-decks-v1';
+  var app = document.getElementById('app');
+  var sb = null;
+  var U = null, P = null;
+  var cloud = [], events = [], myRegs = {}, orgRegs = [], profiles = [];
+  var V = {view:'home', mode:'login', eventId:null, regId:null, busy:false, err:'', msg:'', confirm:'', f:{}};
+
+  function esc(t){
+    return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function low(s){ return String(s || '').trim().toLowerCase(); }
+  function front(s){ return String(s || '').split(' // ')[0]; }
+  function okUrl(u){ return typeof u === 'string' && u.indexOf('https://cards.scryfall.io/') === 0; }
+  function day(t){ try{ return new Date(t).toLocaleDateString('de-DE'); }catch(e){ return ''; } }
+  function eur(v){ return (v === null || v === undefined) ? '' : v.toLocaleString('de-DE', {style:'currency', currency:'EUR'}); }
+  function isOrg(){ return !!(P && P.role === 'organizer'); }
+  function localDecks(){
+    try{ var d = JSON.parse(localStorage.getItem(LKEY) || 'null'); if(d && Array.isArray(d.decks)) return d; }catch(e){}
+    return {v:1, decks:[], coll:null};
+  }
+
+  /* ---------- Deckprüfung (wie in „Decks und Sammlung“) ---------- */
+  var COLORS = {W:'Weiß', U:'Blau', B:'Schwarz', R:'Rot', G:'Grün'};
+  function cardsOf(d){ return (d && Array.isArray(d.cards)) ? d.cards : []; }
+  function cmds(d){ return cardsOf(d).filter(function(x){ return x.c; }); }
+  function identity(d){
+    var s = ''; cmds(d).forEach(function(x){ s += x.ci || ''; });
+    return 'WUBRG'.split('').filter(function(l){ return s.indexOf(l) >= 0; }).join('');
+  }
+  function dots(ci){
+    var ls = ci ? ci.split('') : ['C'];
+    return '<span class="dots" aria-hidden="true">' + ls.map(function(l){ return '<i class="dot c' + l + '"></i>'; }).join('') + '</span>';
+  }
+  function colorNames(ci){ return ci ? ci.split('').map(function(l){ return COLORS[l]; }).join(', ') : 'Farblos'; }
+  function total(d){ return cardsOf(d).reduce(function(s, x){ return s + (x.q || 0); }, 0); }
+  function some(list){ return list.slice(0, 5).map(function(x){ return front(x.name); }).join(', ') + (list.length > 5 ? ' und ' + (list.length - 5) + ' weitere' : ''); }
+  function checks(d){
+    var out = [], n = total(d), cm = cmds(d), id = identity(d), cs = cardsOf(d), miss = (d && d.miss) || [];
+    out.push({ok:n === 100, text:n === 100 ? 'Genau 100 Karten einschließlich Commander.' : n + ' Karten statt 100.'});
+    if(!cm.length) out.push({ok:false, text:'Kein Commander gewählt.'});
+    else if(cm.length > 2) out.push({ok:false, text:cm.length + ' Commander markiert, erlaubt sind höchstens zwei.'});
+    else out.push({ok:true, text:'Commander: ' + cm.map(function(x){ return front(x.name); }).join(' und ') + '.'});
+    if(cm.length){
+      var off = cs.filter(function(x){ return (x.ci || '').split('').some(function(l){ return id.indexOf(l) < 0; }); });
+      out.push({ok:!off.length, text:off.length ? off.length + (off.length === 1 ? ' Karte' : ' Karten') + ' außerhalb der Farbidentität: ' + some(off) + '.' : 'Alle Karten passen zur Farbidentität.'});
+    }
+    var dup = cs.filter(function(x){ return x.q > 1 && !/Basic/.test(x.t || '') && !x.any; });
+    out.push({ok:!dup.length, text:dup.length ? 'Mehrfach enthalten: ' + some(dup) + '.' : 'Jede Karte nur einmal, Standardländer ausgenommen.'});
+    var ban = cs.filter(function(x){ return x.lg === 'banned'; }), nl = cs.filter(function(x){ return x.lg === 'not_legal'; });
+    if(ban.length) out.push({ok:false, text:'Im Commander verboten: ' + some(ban) + '.'});
+    if(nl.length) out.push({ok:false, text:'Im Commander nicht spielbar: ' + some(nl) + '.'});
+    if(!ban.length && !nl.length) out.push({ok:true, text:'Keine verbotenen Karten.'});
+    if(miss.length) out.push({ok:false, text:miss.length + (miss.length === 1 ? ' Zeile' : ' Zeilen') + ' der Liste nicht erkannt.'});
+    return out;
+  }
+  function badCount(d){ return checks(d).filter(function(c){ return !c.ok; }).length; }
+  function statusTag(d){
+    var b = badCount(d);
+    return '<span class="tag ' + (b ? 'no' : 'ok') + '">' + (b ? b + (b === 1 ? ' Hinweis' : ' Hinweise') : 'in Ordnung') + '</span>';
+  }
+  function deckValue(d){
+    var sum = 0, any = false;
+    cardsOf(d).forEach(function(x){ if(typeof x.pr === 'number'){ sum += x.pr * x.q; any = true; } });
+    return any ? sum : null;
+  }
+  var GROUPS = ['Commander','Kreaturen','Planeswalker','Spontanzauber','Hexereien','Artefakte','Verzauberungen','Länder','Sonstige'];
+  function groupOf(x){
+    if(x.c) return 0;
+    var t = front(x.t || '');
+    if(/Land/.test(t)) return 7;
+    if(/Creature/.test(t)) return 1;
+    if(/Planeswalker/.test(t)) return 2;
+    if(/Instant/.test(t)) return 3;
+    if(/Sorcery/.test(t)) return 4;
+    if(/Artifact/.test(t)) return 5;
+    if(/Enchantment/.test(t)) return 6;
+    return 8;
+  }
+  function deckSummary(d){
+    var cm = cmds(d), v = deckValue(d);
+    return dots(identity(d)) + (cm.length ? esc(cm.map(function(x){ return front(x.name); }).join(' und ')) : 'Kein Commander') +
+      ' · ' + total(d) + ' Karten' + (v !== null ? ' · ' + eur(v) : '');
+  }
+  function deckArt(d){
+    var cm = cmds(d), a = cm[0] && cm[0].a;
+    return a && okUrl(a.url) ? '<img src="' + esc(a.url) + '" alt="">' : '<i class="noart"></i>';
+  }
+
+  /* ---------- Daten ---------- */
+  function fail(error){ V.busy = false; V.err = error && error.message ? error.message : 'Etwas ist schiefgegangen.'; render(); }
+  async function loadAll(){
+    if(!U) return;
+    var r = await sb.from('profiles').select('id, display_name, role').eq('id', U.id).maybeSingle();
+    if(r.error) return fail(r.error);
+    P = r.data;
+    var d = await sb.from('decks').select('id, name, data, updated_at').order('updated_at', {ascending:false});
+    if(d.error) return fail(d.error);
+    cloud = d.data || [];
+    var e = await sb.from('events').select('id, name, starts_on, locked, created_at').order('starts_on', {ascending:true, nullsFirst:false});
+    if(e.error) return fail(e.error);
+    events = e.data || [];
+    var g = await sb.from('registrations').select('id, event_id, player, deck_name, deck, updated_at, profiles(display_name)');
+    if(g.error) return fail(g.error);
+    myRegs = {}; orgRegs = g.data || [];
+    orgRegs.forEach(function(x){ if(x.player === U.id) myRegs[x.event_id] = x; });
+    profiles = [];
+    if(isOrg()){
+      var p = await sb.from('profiles').select('id, display_name, role').order('display_name');
+      if(!p.error) profiles = p.data || [];
+    }
+    render();
+  }
+  function eventById(id){ return events.filter(function(x){ return x.id === id; })[0] || null; }
+  function regsOf(id){ return orgRegs.filter(function(x){ return x.event_id === id; }); }
+  function nameOfReg(x){ return (x.profiles && x.profiles.display_name) || 'Unbekannt'; }
+
+  /* ---------- Ansichten ---------- */
+  function notes(){
+    return (V.err ? '<p class="err" role="alert">' + esc(V.err) + '</p>' : '') + (V.msg ? '<p class="msg" role="status">' + esc(V.msg) + '</p>' : '');
+  }
+  function viewAuth(){
+    var su = V.mode === 'signup';
+    return '<main class="page"><a class="back" href="../index.html">Zur Startseite</a><h1>Anmelden</h1>' +
+      '<p class="lead">Mit einem Konto sind deine Decks auf jedem Gerät da, und du kannst sie für die Turniere anmelden.</p>' +
+      '<div class="tabs"><button data-a="mode" data-v="login" aria-pressed="' + !su + '">Anmelden</button><button data-a="mode" data-v="signup" aria-pressed="' + su + '">Konto anlegen</button></div>' +
+      (su ? '<label class="f">Anzeigename<input class="txt" type="text" maxlength="40" autocomplete="nickname" data-f="name" value="' + esc(V.f.name || '') + '"></label>' : '') +
+      '<label class="f">E-Mail<input class="txt" type="email" autocomplete="email" data-f="email" value="' + esc(V.f.email || '') + '"></label>' +
+      '<label class="f">Passwort<input class="txt" type="password" autocomplete="' + (su ? 'new-password' : 'current-password') + '" data-f="pw" value="' + esc(V.f.pw || '') + '"></label>' +
+      (su ? '<p class="hint">Mindestens 8 Zeichen. Der Anzeigename steht später in Ranglisten und am Tisch.</p>' : '') +
+      notes() +
+      '<button class="primary" data-a="' + (su ? 'signup' : 'login') + '"' + (V.busy ? ' disabled' : '') + '>' + (su ? 'Konto anlegen' : 'Anmelden') + '</button></main>';
+  }
+  function eventBox(ev){
+    var mine = myRegs[ev.id], h = '<div class="box"><div class="row"><span><b>' + esc(ev.name) + '</b><small>' + (ev.starts_on ? day(ev.starts_on) : 'Termin offen') + ' · ' + (ev.locked ? 'Anmeldung geschlossen' : 'Anmeldung offen') + '</small></span></div>';
+    if(mine) h += '<p>Angemeldet mit <b>' + esc(mine.deck_name) + '</b> ' + statusTag(mine.deck) + '<small>' + deckSummary(mine.deck) + '</small><small>Stand vom ' + day(mine.updated_at) + '</small></p>';
+    if(ev.locked){
+      if(!mine) h += '<p class="hint">Du hast für dieses Turnier kein Deck angemeldet. Wende dich an die Turnierleitung.</p>';
+    }else if(!cloud.length){
+      h += '<p class="hint">Lade zuerst ein Deck in dein Konto hoch, dann kannst du es hier anmelden.</p>';
+    }else{
+      h += '<label class="f">Deck für dieses Turnier<select class="txt" data-regdeck="' + ev.id + '">' + cloud.map(function(c){
+        return '<option value="' + c.id + '"' + (mine && mine.deck && c.data && mine.deck.id === c.data.id ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+      }).join('') + '</select></label>' +
+        '<button class="primary" data-a="register" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>' + (mine ? 'Anmeldung mit diesem Deck ersetzen' : 'Deck anmelden') + '</button>' +
+        (mine ? '<button class="ghost warn" data-a="unregister" data-id="' + ev.id + '">Vom Turnier abmelden</button>' : '');
+    }
+    return h + '</div>';
+  }
+  function viewHome(){
+    var ld = localDecks().decks;
+    var h = '<main class="page"><a class="back" href="../index.html">Zur Startseite</a><h1>Konto und Turniere</h1>' + notes() +
+      '<div class="box"><div class="row"><span><b>' + esc(P ? P.display_name : '') + '</b><small>' + esc(U.email || '') + ' · ' + (isOrg() ? 'Turnierverwalter' : 'Spieler') + '</small></span>' +
+      '<button class="mini" data-a="logout">Abmelden</button></div>' +
+      '<label class="f">Anzeigename ändern<input class="txt" type="text" maxlength="40" data-f="rename" value="' + esc(V.f.rename !== undefined ? V.f.rename : (P ? P.display_name : '')) + '"></label>' +
+      '<button class="ghost" data-a="rename">Namen speichern</button></div>';
+
+    h += '<h2>Meine Decks im Konto</h2>';
+    h += cloud.length ? cloud.map(function(c){
+      return '<div class="card">' + deckArt(c.data) + '<span><b>' + esc(c.name) + '</b><small>' + deckSummary(c.data) + '</small><small>' + statusTag(c.data) + ' · Stand vom ' + day(c.updated_at) + '</small></span>' +
+        '<button class="mini warn" data-a="deldeck" data-id="' + c.id + '">' + (V.confirm === 'deck' + c.id ? 'Wirklich?' : 'Löschen') + '</button></div>';
+    }).join('') : '<p class="hint">Noch kein Deck im Konto.</p>';
+    h += '<button class="primary" data-a="upload"' + (V.busy || !ld.length ? ' disabled' : '') + '>' + (ld.length ? ld.length + (ld.length === 1 ? ' Deck' : ' Decks') + ' von diesem Gerät hochladen' : 'Auf diesem Gerät ist kein Deck gespeichert') + '</button>' +
+      (cloud.length ? '<button class="ghost" data-a="download">Decks aus dem Konto auf dieses Gerät laden</button>' : '') +
+      '<p class="hint">Decks legst du unter <a href="decks.html">Decks und Sammlung</a> an. Hochladen ersetzt im Konto das Deck mit demselben Ursprung, andere bleiben erhalten.</p>';
+
+    h += '<h2>Turniere</h2>' + (events.length ? events.map(eventBox).join('') : '<p class="hint">Die Turnierleitung hat noch kein Turnier angelegt.</p>');
+
+    if(isOrg()){
+      h += '<h2>Turnierverwaltung</h2><p class="hint">Diesen Bereich sehen nur Turnierverwalter.</p>' +
+        events.map(function(ev){
+          var n = regsOf(ev.id).length;
+          return '<button class="card" data-a="openevent" data-id="' + ev.id + '"><span><b>' + esc(ev.name) + '</b><small>' + n + (n === 1 ? ' Anmeldung' : ' Anmeldungen') + ' · ' + (ev.locked ? 'geschlossen' : 'offen') + '</small></span></button>';
+        }).join('') +
+        '<div class="box"><b>Neues Turnier</b><label class="f">Name<input class="txt" type="text" maxlength="60" data-f="evname" value="' + esc(V.f.evname || '') + '" placeholder="Turnier 1"></label>' +
+        '<label class="f">Datum<input class="txt" type="date" data-f="evdate" value="' + esc(V.f.evdate || '') + '"></label>' +
+        '<button class="ghost" data-a="addevent"' + (V.busy ? ' disabled' : '') + '>Turnier anlegen</button></div>';
+    }
+    return h + '</main>';
+  }
+  function viewEvent(){
+    var ev = eventById(V.eventId); if(!ev || !isOrg()){ V.view = 'home'; return viewHome(); }
+    var regs = regsOf(ev.id).slice().sort(function(a, b){ return nameOfReg(a).localeCompare(nameOfReg(b)); });
+    var have = {}; regs.forEach(function(x){ have[x.player] = true; });
+    var missing = profiles.filter(function(p){ return !have[p.id]; });
+    var bad = regs.filter(function(x){ return badCount(x.deck); }).length;
+    var h = '<main class="page"><button class="back" data-a="home">Zurück</button><h1>' + esc(ev.name) + '</h1>' + notes() +
+      '<p class="lead">' + (ev.starts_on ? day(ev.starts_on) + ' · ' : '') + regs.length + (regs.length === 1 ? ' Anmeldung' : ' Anmeldungen') + ', davon ' + bad + ' mit Hinweisen. Anmeldung ' + (ev.locked ? 'geschlossen' : 'offen') + '.</p>' +
+      '<button class="ghost" data-a="lock" data-id="' + ev.id + '">' + (ev.locked ? 'Anmeldung wieder öffnen' : 'Anmeldung schließen') + '</button>' +
+      '<h2>Angemeldete Decks</h2>' +
+      (regs.length ? regs.map(function(x){
+        return '<button class="card" data-a="openreg" data-id="' + x.id + '">' + deckArt(x.deck) + '<span><b>' + esc(nameOfReg(x)) + '</b><small>' + esc(x.deck_name) + ' ' + statusTag(x.deck) + '</small><small>' + deckSummary(x.deck) + '</small></span></button>';
+      }).join('') : '<p class="hint">Noch keine Anmeldung.</p>') +
+      '<h2>Noch ohne Anmeldung (' + missing.length + ')</h2>' +
+      (missing.length ? '<p>' + esc(missing.map(function(p){ return p.display_name; }).join(', ')) + '</p>' : '<p class="hint">Alle Konten haben ein Deck angemeldet.</p>') +
+      '<button class="ghost warn" data-a="delevent" data-id="' + ev.id + '">' + (V.confirm === 'ev' + ev.id ? 'Wirklich löschen? Alle Anmeldungen gehen verloren.' : 'Turnier löschen') + '</button></main>';
+    return h;
+  }
+  function viewReg(){
+    var x = orgRegs.filter(function(r){ return r.id === V.regId; })[0]; if(!x){ V.view = 'event'; return viewEvent(); }
+    var d = x.deck || {}, id = identity(d), v = deckValue(d), lands = 0;
+    cardsOf(d).forEach(function(c){ if(/Land/.test(front(c.t || ''))) lands += c.q; });
+    var h = '<main class="page"><button class="back" data-a="backevent">Zurück zu den Anmeldungen</button><h1>' + esc(x.deck_name) + '</h1>' +
+      '<p class="lead">' + esc(nameOfReg(x)) + ' · gemeldet am ' + day(x.updated_at) + '</p>' +
+      '<p>' + dots(id) + colorNames(cmds(d).length ? id : '') + '</p>' +
+      '<div class="stats"><div class="stat"><b>' + total(d) + '</b><span>Karten</span></div><div class="stat"><b>' + lands + '</b><span>Länder</span></div>' +
+      '<div class="stat"><b>' + (v !== null ? eur(v) : 'k. A.') + '</b><span>Deckwert</span></div></div>' +
+      '<h2>Prüfung</h2><ul class="checks">' + checks(d).map(function(c){
+        return '<li class="' + (c.ok ? 'ok' : 'no') + '"><b>' + (c.ok ? 'OK' : 'Achtung') + '</b><span>' + esc(c.text) + '</span></li>';
+      }).join('') + '</ul>';
+    if(d.miss && d.miss.length) h += '<h3>Nicht erkannte Zeilen</h3><p>' + esc(d.miss.join(', ')) + '</p>';
+    h += '<h2>Deckliste</h2>';
+    GROUPS.forEach(function(g, gi){
+      var list = cardsOf(d).filter(function(c){ return groupOf(c) === gi; }).sort(function(a, b){ return a.name.localeCompare(b.name); });
+      if(!list.length) return;
+      h += '<h3>' + g + ' (' + list.reduce(function(s, c){ return s + c.q; }, 0) + ')</h3><ul class="list">' + list.map(function(c){
+        return '<li><a href="https://scryfall.com/search?q=' + encodeURIComponent('!"' + front(c.name) + '"') + '" target="_blank" rel="noopener"><i>' + c.q + '</i><span>' + esc(c.name) + '</span><em>' + (c.lg === 'banned' ? 'verboten · ' : '') + (typeof c.pr === 'number' ? eur(c.pr) : '') + '</em></a></li>';
+      }).join('') + '</ul>';
+    });
+    return h + '<p class="hint">Ein Tipp auf eine Karte öffnet sie bei Scryfall. Preise sind Richtwerte vom Tag, an dem der Spieler sie geladen hat.</p></main>';
+  }
+  function render(){
+    if(!sb){ app.innerHTML = '<main class="page"><a class="back" href="../index.html">Zur Startseite</a><h1>Konto</h1><p class="err">Die Verbindung zur Datenbank konnte nicht geladen werden. Prüfe deine Internetverbindung und lade die Seite neu.</p></main>'; return; }
+    app.innerHTML = !U ? viewAuth() : V.view === 'event' ? viewEvent() : V.view === 'reg' ? viewReg() : viewHome();
+  }
+
+  /* ---------- Aktionen ---------- */
+  async function act(a, b){
+    var id = b.getAttribute('data-id');
+    V.err = ''; V.msg = '';
+    if(a !== 'deldeck' && a !== 'delevent') V.confirm = '';
+    switch(a){
+      case 'mode': V.mode = b.getAttribute('data-v'); break;
+      case 'home': V.view = 'home'; window.scrollTo(0, 0); break;
+      case 'backevent': V.view = 'event'; window.scrollTo(0, 0); break;
+      case 'openevent': V.view = 'event'; V.eventId = id; window.scrollTo(0, 0); break;
+      case 'openreg': V.view = 'reg'; V.regId = id; window.scrollTo(0, 0); break;
+      case 'login': {
+        if(!V.f.email || !V.f.pw){ V.err = 'Bitte E-Mail und Passwort eintragen.'; break; }
+        V.busy = true; render();
+        var r = await sb.auth.signInWithPassword({email:V.f.email.trim(), password:V.f.pw});
+        V.busy = false;
+        if(r.error){ V.err = /invalid login/i.test(r.error.message) ? 'E-Mail oder Passwort stimmen nicht.' : (/not confirmed/i.test(r.error.message) ? 'Bestätige zuerst deine E-Mail-Adresse über den Link in der Mail.' : r.error.message); }
+        else V.f = {};
+        break;
+      }
+      case 'signup': {
+        var nm = (V.f.name || '').trim();
+        if(!nm || !V.f.email || !V.f.pw){ V.err = 'Bitte Anzeigename, E-Mail und Passwort eintragen.'; break; }
+        if(V.f.pw.length < 8){ V.err = 'Das Passwort braucht mindestens 8 Zeichen.'; break; }
+        V.busy = true; render();
+        var s = await sb.auth.signUp({email:V.f.email.trim(), password:V.f.pw, options:{data:{display_name:nm}}});
+        V.busy = false;
+        if(s.error) V.err = /already registered/i.test(s.error.message) ? 'Mit dieser E-Mail gibt es schon ein Konto.' : s.error.message;
+        else if(!s.data || !s.data.session){ V.msg = 'Konto angelegt. Bestätige jetzt deine E-Mail-Adresse über den Link in der Mail und melde dich dann an.'; V.mode = 'login'; V.f.pw = ''; }
+        else V.f = {};
+        break;
+      }
+      case 'logout': await sb.auth.signOut(); V.view = 'home'; V.mode = 'login'; V.f = {}; break;
+      case 'rename': {
+        var nn = (V.f.rename !== undefined ? V.f.rename : '').trim();
+        if(!nn){ V.err = 'Bitte einen Namen eintragen.'; break; }
+        var u = await sb.from('profiles').update({display_name:nn}).eq('id', U.id);
+        if(u.error) return fail(u.error);
+        V.msg = 'Name gespeichert.'; delete V.f.rename; await loadAll(); return;
+      }
+      case 'upload': {
+        var ld = localDecks().decks; if(!ld.length) break;
+        V.busy = true; render();
+        for(var k = 0; k < ld.length; k++){
+          var d = ld[k], hit = cloud.filter(function(c){ return c.data && String(c.data.id) === String(d.id); })[0];
+          var q = hit ? await sb.from('decks').update({name:d.name, data:d}).eq('id', hit.id)
+                      : await sb.from('decks').insert({owner:U.id, name:d.name, data:d});
+          if(q.error) return fail(q.error);
+        }
+        V.busy = false; V.msg = ld.length + (ld.length === 1 ? ' Deck' : ' Decks') + ' hochgeladen.'; await loadAll(); return;
+      }
+      case 'download': {
+        var store = localDecks(), added = 0, updated = 0;
+        cloud.forEach(function(c){
+          if(!c.data || !Array.isArray(c.data.cards)) return;
+          var at = -1; store.decks.forEach(function(x, i){ if(String(x.id) === String(c.data.id)) at = i; });
+          if(at >= 0){ store.decks[at] = c.data; updated++; } else { store.decks.push(c.data); added++; }
+        });
+        try{ localStorage.setItem(LKEY, JSON.stringify(store)); V.msg = added + ' neu, ' + updated + ' aktualisiert. Die Decks stehen jetzt im Zähler und unter „Decks und Sammlung“ bereit.'; }
+        catch(e){ V.err = 'Der Speicher dieses Geräts ist voll.'; }
+        break;
+      }
+      case 'deldeck': {
+        if(V.confirm !== 'deck' + id){ V.confirm = 'deck' + id; break; }
+        V.confirm = '';
+        var x = await sb.from('decks').delete().eq('id', id);
+        if(x.error) return fail(x.error);
+        V.msg = 'Deck aus dem Konto gelöscht. Bestehende Turnieranmeldungen bleiben erhalten.'; await loadAll(); return;
+      }
+      case 'register': {
+        var sel = app.querySelector('[data-regdeck="' + id + '"]'), c = sel && cloud.filter(function(z){ return z.id === sel.value; })[0];
+        if(!c){ V.err = 'Wähle zuerst ein Deck.'; break; }
+        V.busy = true; render();
+        var g = await sb.from('registrations').upsert({event_id:id, player:U.id, deck_name:c.name, deck:c.data}, {onConflict:'event_id,player'});
+        V.busy = false;
+        if(g.error) return fail(g.error);
+        V.msg = '„' + c.name + '“ ist angemeldet.'; await loadAll(); return;
+      }
+      case 'unregister': {
+        var w = await sb.from('registrations').delete().eq('event_id', id).eq('player', U.id);
+        if(w.error) return fail(w.error);
+        V.msg = 'Du bist abgemeldet.'; await loadAll(); return;
+      }
+      case 'addevent': {
+        var en = (V.f.evname || '').trim();
+        if(!en){ V.err = 'Bitte einen Namen für das Turnier eintragen.'; break; }
+        V.busy = true; render();
+        var n = await sb.from('events').insert({name:en, starts_on:V.f.evdate || null});
+        V.busy = false;
+        if(n.error) return fail(n.error);
+        V.f.evname = ''; V.f.evdate = ''; V.msg = 'Turnier angelegt.'; await loadAll(); return;
+      }
+      case 'lock': {
+        var ev = eventById(id); if(!ev) break;
+        var l = await sb.from('events').update({locked:!ev.locked}).eq('id', id);
+        if(l.error) return fail(l.error);
+        await loadAll(); return;
+      }
+      case 'delevent': {
+        if(V.confirm !== 'ev' + id){ V.confirm = 'ev' + id; break; }
+        V.confirm = '';
+        var de = await sb.from('events').delete().eq('id', id);
+        if(de.error) return fail(de.error);
+        V.view = 'home'; V.msg = 'Turnier gelöscht.'; await loadAll(); return;
+      }
+    }
+    render();
+  }
+  app.addEventListener('input', function(e){
+    var t = e.target; if(t && t.hasAttribute && t.hasAttribute('data-f')) V.f[t.getAttribute('data-f')] = t.value;
+  });
+  app.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-a]') : null;
+    if(!b || b.disabled) return;
+    act(b.getAttribute('data-a'), b).catch(function(err){ fail(err); });
+  });
+
+  if(window.supabase && window.supabase.createClient){
+    sb = window.supabase.createClient(SB_URL, SB_KEY);
+    sb.auth.onAuthStateChange(function(event, session){
+      var next = session ? session.user : null, changed = (next && next.id) !== (U && U.id);
+      U = next;
+      if(!U){ P = null; cloud = []; events = []; myRegs = {}; orgRegs = []; profiles = []; render(); }
+      else if(changed){ render(); setTimeout(loadAll, 0); }
+    });
+    sb.auth.getSession().then(function(r){
+      var s = r && r.data ? r.data.session : null;
+      if(s && !U){ U = s.user; render(); loadAll(); } else if(!s) render();
+    });
+  }else render();
+})();
+</script>
+</body>
+</html>

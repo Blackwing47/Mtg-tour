@@ -141,6 +141,15 @@ Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig
 - Ein direktes Verknüpfen von Konten bei Moxfield oder Archidekt ist nicht vorgesehen: Archidekt sperrt Abrufe aus fremden Webseiten, ein Abruf über einen Deck-Link bräuchte den eigenen Server.
 - Im Prototyp liegen Decks und Sammlung nur auf dem jeweiligen Gerät.
 
+## Konten und Rollen
+
+- Jeder Spieler legt ein Konto mit Anzeigename, E-Mail und Passwort an. Daten liegen bei Supabase, Tabellen und Zugriffsregeln stehen in `supabase/schema.sql`.
+- Spieler sehen nur ihr eigenes Profil, ihre eigenen Decks und ihre eigene Turnieranmeldung.
+- Turnierverwalter legen Turniere an, schließen die Anmeldung und sehen alle Anmeldungen mit kompletter Deckliste und Prüfbericht. Die privaten Decks der Spieler sehen sie nicht.
+- Bei der Anmeldung wird eine Kopie der Deckliste gespeichert. Geprüft wird genau dieser Stand.
+- Solange die Anmeldung offen ist, kann der Spieler sein Deck ersetzen oder sich abmelden. Danach nur noch die Turnierverwalter.
+- Die Rolle Turnierverwalter wird nur direkt in der Datenbank vergeben, nicht in der App.
+
 ## Weitere geplante Funktionen
 
 - Kartenscan: Kartenname per Kamera erkennen, aktuellen Kartentext, Übersetzung und offizielle Rulings von Scryfall anzeigen.
