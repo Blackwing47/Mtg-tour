@@ -119,6 +119,13 @@ Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig
 - Namen und Commander-Bilder stehen dadurch im Zähler bereit, sobald ein Tisch ausgelost ist.
 - Die Veranstalter bekommen Statistiken: gespielte Commander, Farbverteilung, Ergebnisse pro Commander und Farbe, meistgespielte Karten und Highlightkarten.
 
+## Commander-Bilder
+
+- Beim Eintragen eines Commanders schlägt die App passende Karten von Scryfall vor. Gesucht wird nach deutschen und englischen Namen.
+- Gibt es mehrere Illustrationen, wählt der Spieler die aus seinem Deck. Vorausgewählt ist die neueste.
+- Das Bild füllt das Spielerfeld im Zähler und die Kacheln für den Commander-Schaden. Bei Partnern teilen sich beide Bilder das Feld.
+- Vorgaben von Scryfall: Bilder werden nicht verzerrt oder eingefärbt, und Illustrator sowie „© Wizards of the Coast“ stehen in der App (Einrichtung, Zählerfeld, Menü).
+
 ## Weitere geplante Funktionen
 
 - Kartenscan: Kartenname per Kamera erkennen, aktuellen Kartentext, Übersetzung und offizielle Rulings von Scryfall anzeigen.

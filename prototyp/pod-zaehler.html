@@ -92,8 +92,8 @@ h1,h2,p{margin:0}
 .page h2{font-size:17px;font-weight:600}
 .lead{color:var(--muted)}
 .hint{color:var(--muted);font-size:14px}
-.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.seat{background:var(--pbg);color:var(--pink);border-radius:18px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.seats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.seat{background:var(--pbg);color:var(--pink);border-radius:18px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .seat input{font:inherit;font-weight:600;color:inherit;background:color-mix(in srgb,var(--pink) 10%,transparent);border:0;border-radius:10px;padding:9px 10px;width:100%;min-width:0;-webkit-user-select:text;user-select:text}
 .pick{border:1.5px solid currentColor;border-radius:99px;font-size:14px;font-weight:500;padding:5px 10px;align-self:flex-start}
 .pick[aria-pressed="true"]{background:var(--pink);color:var(--pbg)}
@@ -182,6 +182,36 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
 .mk{max-width:none}
 .picks{display:flex;flex-wrap:wrap;gap:6px}
 .cell.two{font-size:10px;letter-spacing:-.03em}
+/* Commander-Bilder von Scryfall */
+.sug{display:flex;flex-direction:column;gap:4px}
+.sug:empty{display:none}
+.sug button{text-align:left;background:color-mix(in srgb,var(--pink) 10%,transparent);border-radius:10px;padding:8px 10px;font-size:14px;line-height:1.2}
+.sug p{font-size:13px}
+.artrow{display:flex;gap:8px;align-items:center;font-size:12px;line-height:1.2}
+.artrow img{width:56px;height:42px;object-fit:cover;border-radius:8px;flex:none}
+.artrow span{flex:1;min-width:0}
+.artrow small{display:block;opacity:.8}
+.artgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.artgrid button{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-align:left;font-size:13px;line-height:1.2}
+.artgrid img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.artgrid span{display:block;padding:6px 8px}
+.artgrid small{display:block;color:var(--muted)}
+.bgart{position:absolute;inset:0;display:flex}
+.bgart i{flex:1;background-position:center;background-size:cover}
+.inner > .pcol,.inner > .pmid{position:relative}
+.panel.lethal,.panel.turn{box-shadow:none}
+.panel.lethal::after,.panel.turn::after{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;z-index:3;box-shadow:inset 0 0 0 4px var(--pink)}
+.panel.lethal::after{box-shadow:inset 0 0 0 4px var(--danger)}
+.panel.art{--pink:#fff;color:#fff;background:#111}
+.panel.art .lb{background:rgba(0,0,0,.5)}
+.panel.art .lb:active{background:rgba(0,0,0,.7)}
+.panel.art .pname,.panel.art .tag,.panel.art .status,.panel.art .delta{background:rgba(0,0,0,.6);border-radius:8px;padding:1px 7px;border-color:transparent}
+.panel.art .status{align-self:center}
+.panel.art .life{text-shadow:0 0 8px #000,0 2px 4px #000,0 0 2px #000}
+.panel.art .mk{background:rgba(0,0,0,.6);border-color:transparent}
+.panel.art .cgrid{background:rgba(0,0,0,.6)}
+.cell.art{background-position:center;background-size:cover;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}
+.ctile.art{background-position:center;background-size:cover;color:#fff;text-shadow:0 0 6px #000,0 1px 3px #000,0 0 2px #000}
 @media (prefers-reduced-motion: reduce){ .toggle i,.toggle i::after{transition:none} }
 </style>
 </head>
@@ -204,7 +234,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
 
   function fresh(){
     return {v:1, phase:'setup', startLife:40, autoLife:true, flip:true, starter:0,
-      names:['Spieler 1','Spieler 2','Spieler 3','Spieler 4'], cmds:['','','',''], cmds2:['','','',''], partner:[false,false,false,false], players:null, extra:null, session:[],
+      names:['Spieler 1','Spieler 2','Spieler 3','Spieler 4'], cmds:['','','',''], cmds2:['','','',''], partner:[false,false,false,false], art:[[null,null],[null,null],[null,null],[null,null]], players:null, extra:null, session:[],
       timer:{endsAt:null, remaining:ROUND_MS}, closing:null, timeout:false};
   }
   function load(){
@@ -216,6 +246,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         if(!Array.isArray(s.cmds)) s.cmds = ['','','',''];
         if(!Array.isArray(s.cmds2)) s.cmds2 = ['','','',''];
         if(!Array.isArray(s.partner)) s.partner = [false,false,false,false];
+        if(!Array.isArray(s.art)) s.art = [[null,null],[null,null],[null,null],[null,null]];
         if(Array.isArray(s.players)) s.players.forEach(function(q){
           q.cmd = q.cmd.map(function(c){ return Array.isArray(c) ? c : [c || 0, 0]; });
         });
@@ -265,11 +296,86 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     dTimers[i] = setTimeout(function(){ deltas[i] = 0; render(); }, 1600);
   }
 
+  /* ---------- Scryfall: Commander suchen und Bild wählen ---------- */
+  var SF = 'https://api.scryfall.com/cards/search';
+  var sfTimer = null, sfSeq = 0, sugCache = {};
+  function okUrl(u){ return typeof u === 'string' && u.indexOf('https://cards.scryfall.io/') === 0; }
+  function artUrl(a){ return a && okUrl(a.url) ? a.url : ''; }
+  function bgStyle(u){ return ' style="background-image:url(&quot;' + esc(u) + '&quot;)"'; }
+  function artsOf(p){ return (p.art || []).map(artUrl).filter(Boolean); }
+  function sfGet(url){
+    return fetch(url, {headers:{'Accept':'application/json'}}).then(function(r){
+      if(r.status === 404) return {data:[]};
+      if(!r.ok) throw new Error('scryfall ' + r.status);
+      return r.json();
+    });
+  }
+  function cardArt(c){
+    var u = c.image_uris || (c.card_faces && c.card_faces[0] && c.card_faces[0].image_uris) || null;
+    return {url:u ? u.art_crop : '', artist:c.artist || (c.card_faces && c.card_faces[0] && c.card_faces[0].artist) || '',
+      set:c.set_name || '', year:(c.released_at || '').slice(0,4), oracle:c.oracle_id || '', en:c.name || ''};
+  }
+  function sugBox(i, c){ return document.getElementById('sug-' + i + '-' + c); }
+  function cmdTyped(input, i, c){
+    if(S.art[i][c]){
+      S.art[i][c] = null; save();
+      var nx = input.nextElementSibling;
+      if(nx && nx.classList && nx.classList.contains('artrow')){ nx.className = 'sug'; nx.id = 'sug-' + i + '-' + c; nx.innerHTML = ''; }
+    }
+    clearTimeout(sfTimer);
+    var text = input.value.trim(), box = sugBox(i, c), seq = ++sfSeq;
+    if(text.length < 2){ if(box) box.innerHTML = ''; return; }
+    sfTimer = setTimeout(function(){
+      var terms = text.replace(/["()]/g, ' ').split(/[\s,]+/).filter(Boolean).map(function(w){ return 'name:"' + w + '"'; }).join(' ');
+      sfGet(SF + '?unique=cards&order=edhrec&include_multilingual=true&q=' + encodeURIComponent(terms + ' (is:commander or t:background)')).then(function(res){
+        if(seq !== sfSeq) return;
+        var seen = {}, list = [];
+        (res.data || []).forEach(function(card){
+          var a = cardArt(card);
+          if(!a.oracle || seen[a.oracle] || list.length >= 6) return;
+          seen[a.oracle] = true; a.label = card.printed_name || card.name; list.push(a);
+        });
+        sugCache[i + '-' + c] = list;
+        var b2 = sugBox(i, c); if(!b2) return;
+        b2.innerHTML = list.length ? list.map(function(a, k){
+          return '<button data-a="pickcmd" data-i="' + i + '" data-c="' + c + '" data-k="' + k + '">' + esc(a.label) + '</button>';
+        }).join('') : '<p>Keine passende Karte gefunden.</p>';
+      }).catch(function(){
+        var b3 = sugBox(i, c); if(seq === sfSeq && b3) b3.innerHTML = '<p>Scryfall ist gerade nicht erreichbar. Der Name wird ohne Bild übernommen.</p>';
+      });
+    }, 350);
+  }
+  function loadArts(i, c, open){
+    var a = S.art[i][c]; if(!a || !a.oracle) return;
+    sfGet(SF + '?unique=art&order=released&q=' + encodeURIComponent('oracleid:' + a.oracle)).then(function(res){
+      var list = (res.data || []).map(cardArt).filter(function(x){ return okUrl(x.url); }).slice(0, 40);
+      if(!list.length || !S.art[i][c] || S.art[i][c].oracle !== a.oracle) return;
+      if(!okUrl(S.art[i][c].url)){ S.art[i][c] = list[0]; }
+      if(open || list.length > 1) sheet = {type:'art', si:i, c:c, list:list};
+      render();
+    }).catch(function(){});
+  }
+  function cmdExtra(i, c){
+    var a = S.art[i][c];
+    if(a && okUrl(a.url)){
+      return '<div class="artrow"><img src="' + esc(a.url) + '" alt=""><span>Illustration: ' + esc(a.artist || 'unbekannt') + '<small>' + esc(a.set) + '</small></span>' +
+        '<button class="pick" data-a="arts" data-i="' + i + '" data-c="' + c + '">Bild</button></div>';
+    }
+    return '<div class="sug" id="sug-' + i + '-' + c + '"></div>';
+  }
+  function credits(){
+    var names = [];
+    (S.players || []).forEach(function(q){
+      (q.art || []).forEach(function(a){ if(a && okUrl(a.url) && a.artist && names.indexOf(a.artist) < 0) names.push(a.artist); });
+    });
+    return names.length ? '<p class="hint">Illustrationen: ' + esc(names.join(', ')) + '. © Wizards of the Coast, Bilder über Scryfall.</p>' : '';
+  }
+
   /* ---------- Spiellogik ---------- */
   function startGame(){
     S.players = S.names.map(function(n, i){
       return {name:(n || '').trim() || ('Spieler ' + (i+1)), cmdName:(S.cmds[i] || '').trim(), life:S.startLife, poison:0, energy:0, exp:0,
-        cmd:[[0,0],[0,0],[0,0],[0,0]], partner:!!S.partner[i], cmdName2:(S.cmds2[i] || '').trim(), treasure:0, rad:0, tax:0, tax2:0, blessing:false, special:null, out:false, place:null, reason:null};
+        cmd:[[0,0],[0,0],[0,0],[0,0]], partner:!!S.partner[i], cmdName2:(S.cmds2[i] || '').trim(), art:[S.art[i][0], S.partner[i] ? S.art[i][1] : null], treasure:0, rad:0, tax:0, tax2:0, blessing:false, special:null, out:false, place:null, reason:null};
     });
     S.extra = null; S.phase = 'play'; hist = []; deltas = [0,0,0,0];
     S.closing = null; S.timeout = false; wasOver = false;
@@ -370,8 +476,8 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     var on = S.starter === i;
     return '<div class="seat p' + i + '">' +
       '<input type="text" maxlength="14" autocomplete="off" data-name="' + i + '" value="' + esc(S.names[i]) + '" aria-label="Name, Platz ' + SEATS[i] + '">' +
-      '<input class="cmdin" type="text" maxlength="40" autocomplete="off" data-cmd="' + i + '" value="' + esc(S.cmds[i] || '') + '" placeholder="Commander" aria-label="Commander, Platz ' + SEATS[i] + '">' +
-      (S.partner[i] ? '<input class="cmdin" type="text" maxlength="40" autocomplete="off" data-cmd2="' + i + '" value="' + esc(S.cmds2[i] || '') + '" placeholder="Zweiter Commander" aria-label="Zweiter Commander, Platz ' + SEATS[i] + '">' : '') +
+      '<input class="cmdin" type="text" maxlength="40" autocomplete="off" data-cmd="' + i + '" value="' + esc(S.cmds[i] || '') + '" placeholder="Commander" aria-label="Commander, Platz ' + SEATS[i] + '">' + cmdExtra(i, 0) +
+      (S.partner[i] ? '<input class="cmdin" type="text" maxlength="40" autocomplete="off" data-cmd2="' + i + '" value="' + esc(S.cmds2[i] || '') + '" placeholder="Zweiter Commander" aria-label="Zweiter Commander, Platz ' + SEATS[i] + '">' + cmdExtra(i, 1) : '') +
       '<div class="picks"><button class="pick" data-a="starter" data-i="' + i + '" aria-pressed="' + on + '">' + (on ? 'Beginnt' : 'Soll beginnen') + '</button>' +
       '<button class="pick" data-a="partner" data-i="' + i + '" aria-pressed="' + (S.partner[i] ? 'true' : 'false') + '">Partner</button></div></div>';
   }
@@ -397,7 +503,8 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     var inGroup = inExtra && S.extra.group.indexOf(i) >= 0;
     var active = inExtra ? inGroup : !p.out;
     var L = lethal(p);
-    var cls = 'panel p' + i + ((i === 1 || i === 2) ? ' rside' : '');
+    var arts = artsOf(p);
+    var cls = 'panel p' + i + ((i === 1 || i === 2) ? ' rside' : '') + (arts.length ? ' art' : '');
     if(p.out && !inGroup) cls += ' out';
     if(inExtra && !inGroup && !p.out) cls += ' out';
     if(L) cls += ' lethal';
@@ -420,13 +527,15 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     if(p.blessing) marks.push('<span>Aufstieg</span>');
     var cells = [0,1,3,2].map(function(j){
       var two = j !== i && S.players[j].partner;
-      return '<span class="cell p' + j + (two ? ' two' : '') + '">' + (j === i ? 'ich' : (two ? p.cmd[j][0] + '/' + p.cmd[j][1] : p.cmd[j][0])) + '</span>';
+      var ca = artsOf(S.players[j])[0];
+      return '<span class="cell p' + j + (two ? ' two' : '') + (ca ? ' art' : '') + '"' + (ca ? bgStyle(ca) : '') + '>' + (j === i ? 'ich' : (two ? p.cmd[j][0] + '/' + p.cmd[j][1] : p.cmd[j][0])) + '</span>';
     }).join('');
     function lb(v, sm){
       return '<button class="lb' + (sm ? ' sm' : '') + '"' + (sm ? '' : ' data-hold="10"') + ' data-a="life" data-i="' + i + '" data-v="' + v + '" aria-label="' + (v > 0 ? v + ' Leben mehr' : (-v) + ' Leben weniger') + '">' +
         (sm ? signed(v) : (v > 0 ? '+' : '\u2212')) + '</button>';
     }
     var h = '<section class="' + cls + '"><div class="inner">' +
+      (arts.length ? '<div class="bgart">' + arts.map(function(u){ return '<i' + bgStyle(u) + '></i>'; }).join('') + '</div>' : '') +
       '<div class="pcol">' + (active ? lb(-1) + lb(-5, true) : '') + '</div>' +
       '<div class="pmid">' +
       '<div class="phead"><span class="pname">' + esc(p.name) + '</span>' + (S.starter === i ? '<span class="tag">beginnt</span>' : '') + '</div>' +
@@ -528,7 +637,8 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         for(var c = 0; c < (q.partner ? 2 : 1); c++){
           var dmg = p.cmd[j][c]; nt++;
           var sub = q.partner ? ((c ? q.cmdName2 : q.cmdName) || ('Commander ' + (c + 1))) : '';
-          tiles += '<button class="ctile p' + j + (dmg >= 21 ? ' hot' : '') + '" data-a="cmd"' + attr + ' data-j="' + j + '" data-c="' + c + '" data-v="1" data-hold="1" aria-label="Commander-Schaden von ' + esc(q.name) + (sub ? ', ' + esc(sub) : '') + ', aktuell ' + dmg + '">' +
+          var ta = artUrl((q.art || [])[c]);
+          tiles += '<button class="ctile p' + j + (dmg >= 21 ? ' hot' : '') + (ta ? ' art' : '') + '"' + (ta ? bgStyle(ta) : '') + ' data-a="cmd"' + attr + ' data-j="' + j + '" data-c="' + c + '" data-v="1" data-hold="1" aria-label="Commander-Schaden von ' + esc(q.name) + (sub ? ', ' + esc(sub) : '') + ', aktuell ' + dmg + '">' +
             '<b>' + dmg + '</b><span>' + esc(q.name) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</button>';
         }
       });
@@ -551,7 +661,12 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         '<button class="zt ko" data-a="sheet" data-v="ko"' + attr + '><span>K.o.</span></button>' +
         '</div>' +
         '<div class="ctiles" style="grid-template-columns:repeat(' + nt + ',minmax(0,1fr))">' + tiles + '</div>' +
-        '<p class="hint">Tippen erhöht, gedrückt halten nimmt 1 zurück. Die farbigen Felder zählen Commander-Schaden' + (S.autoLife ? ' und senken das Leben' : '') + '.</p>';
+        '<p class="hint">Tippen erhöht, gedrückt halten nimmt 1 zurück. Die farbigen Felder zählen Commander-Schaden' + (S.autoLife ? ' und senken das Leben' : '') + '.</p>' + credits();
+    }else if(sheet.type === 'art'){
+      body = '<div class="shead"><h2>Bild wählen</h2>' + close + '</div><div class="artgrid">' +
+        sheet.list.map(function(a, k){
+          return '<button data-a="pickart" data-k="' + k + '"><img loading="lazy" src="' + esc(a.url) + '" alt=""><span>' + esc(a.set) + (a.year ? ' (' + a.year + ')' : '') + '<small>' + esc(a.artist) + '</small></span></button>';
+        }).join('') + '</div><p class="hint">© Wizards of the Coast, Bilder über Scryfall.</p>';
     }else if(sheet.type === 'ko'){
       var ki = sheet.i;
       body = '<div class="shead"><h2>' + nameOf(ki) + ' scheidet aus?</h2>' + close + '</div><div class="cols">' +
@@ -570,7 +685,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         '<button class="ghost" data-a="pause">' + (S.timer.endsAt ? 'Timer anhalten' : 'Timer fortsetzen') + '</button>' +
         (S.closing || S.phase !== 'play' ? '' : '<button class="ghost" data-a="sheet" data-v="closing">Schlussrunde jetzt starten</button>') +
         '<button class="ghost" data-a="sheet" data-v="standings">Punktestand ansehen</button>' +
-        '<button class="ghost warn" data-a="sheet" data-v="abort">Spiel abbrechen</button>';
+        '<button class="ghost warn" data-a="sheet" data-v="abort">Spiel abbrechen</button>' + credits();
     }else if(sheet.type === 'closing'){
       body = '<div class="shead"><h2>Wer ist gerade am Zug?</h2>' + close + '</div>' +
         '<p>Dieser Spieler beendet seinen Zug. Danach ist jeder noch genau einmal dran, dann zählen die Lebenspunkte.</p>';
@@ -622,10 +737,10 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
       save();
     }else if(t && t.hasAttribute && t.hasAttribute('data-cmd')){
       S.cmds[+t.getAttribute('data-cmd')] = t.value;
-      save();
+      save(); cmdTyped(t, +t.getAttribute('data-cmd'), 0);
     }else if(t && t.hasAttribute && t.hasAttribute('data-cmd2')){
       S.cmds2[+t.getAttribute('data-cmd2')] = t.value;
-      save();
+      save(); cmdTyped(t, +t.getAttribute('data-cmd2'), 1);
     }
   });
 
@@ -668,6 +783,18 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     var p = (S.players && i >= 0) ? S.players[i] : null;
 
     switch(a){
+      case 'pickcmd':
+        var pc = +b.getAttribute('data-c'), item = (sugCache[i + '-' + pc] || [])[+b.getAttribute('data-k')];
+        if(!item) break;
+        (pc ? S.cmds2 : S.cmds)[i] = item.label; S.art[i][pc] = item; sfSeq++;
+        loadArts(i, pc, false); break;
+      case 'arts': loadArts(i, +b.getAttribute('data-c'), true); break;
+      case 'pickart':
+        if(sheet && sheet.type === 'art' && sheet.list[+b.getAttribute('data-k')]){
+          var chosen = sheet.list[+b.getAttribute('data-k')], old = S.art[sheet.si][sheet.c] || {};
+          chosen.label = old.label; S.art[sheet.si][sheet.c] = chosen;
+        }
+        sheet = null; break;
       case 'starter': S.starter = i; break;
       case 'partner': S.partner[i] = !S.partner[i]; break;
       case 'roll': S.starter = Math.floor(Math.random() * 4); break;
