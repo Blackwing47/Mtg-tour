@@ -415,8 +415,9 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
       (D.decks.length ? D.decks.map(deckCard).join('') : '<p class="hint">Noch kein Deck gespeichert.</p>') +
       '<button class="primary" data-a="go" data-v="import">Deck hinzufügen</button>' +
       '<h2>Sammlung</h2>' +
-      (D.coll ? '<button class="card" data-a="go" data-v="coll"><span><b>' + D.coll.total + ' Karten' + (collValue(D.coll.rows).any ? ', ' + eur(collValue(D.coll.rows).sum) : '') + '</b><small>' + D.coll.rows.length + ' verschiedene, eingelesen am ' + new Date(D.coll.t).toLocaleDateString('de-DE') + '</small></span></button>'
+      (D.coll ? '<button class="card" data-a="go" data-v="coll"><span><b>' + D.coll.total + ' Karten' + (collValue(D.coll.rows).any ? ', ' + eur(collValue(D.coll.rows).sum) : '') + '</b><small>' + D.coll.rows.length + ' verschiedene, geändert am ' + new Date(D.coll.u || D.coll.t).toLocaleDateString('de-DE') + '</small></span></button>'
         : '<p class="hint">Noch keine Sammlung eingelesen.</p>') +
+      '<a class="ghost" href="scan.html" style="text-decoration:none">Karten scannen</a>' +
       '<label class="ghost">' + (D.coll ? 'Sammlung neu einlesen (CSV-Datei)' : 'Sammlung einlesen (CSV-Datei)') + '<input type="file" accept=".csv,text/csv,text/plain" hidden data-collfile></label>' +
       (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '') +
       '<p class="hint">Alles wird nur auf diesem Gerät gespeichert. Kartendaten, Bilder und Preise kommen von Scryfall. Die Preise sind Richtwerte in Euro und gelten für den angegebenen Tag. © Wizards of the Coast.</p></main>';
@@ -526,6 +527,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
           '<button class="mini" data-a="collprices"' + (pricing ? ' disabled' : '') + '>' + (cv.any ? 'Aktualisieren' : 'Preise laden') + '</button></div>' +
           (V.pbusy ? '<p role="status" id="pbusy">' + esc(V.pbusy) + '</p>' : '') + (V.err ? '<p class="err">' + esc(V.err) + '</p>' : '');
       })() +
+      '<a class="ghost" href="scan.html" style="text-decoration:none">Karten scannen</a>' +
       '<input class="txt" type="search" data-collq value="' + esc(V.q) + '" placeholder="Karte suchen" aria-label="Karte in der Sammlung suchen">' +
       '<div id="collrows">' + collRows(V.q) + '</div>' +
       '<button class="ghost warn" data-a="sheet" data-v="delcoll">Sammlung löschen</button></main>';
@@ -779,6 +781,7 @@ textarea{min-height:200px;resize:vertical;font-size:14px}
     render();
   });
 
+  if(location.hash === '#sammlung' && D.coll) V.view = 'coll';
   render();
 })();
 </script>

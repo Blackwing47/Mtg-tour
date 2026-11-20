@@ -143,6 +143,16 @@ Gewinnt ein Spieler durch einen Karteneffekt, scheiden alle anderen gleichzeitig
 - ManaBox: Decks und Sammlung kommen als Text- oder CSV-Export in die App.
 - Im Prototyp liegen Decks und Sammlung nur auf dem jeweiligen Gerät.
 
+## Karten scannen
+
+- Die Scan-Seite nutzt die Handykamera. Die Karte liegt in einem Rahmen, die App liest zuerst die Zeile unten links mit Kartennummer, Edition und Sprache und holt damit genau diese Fassung von Scryfall.
+- Bei älteren Karten ohne diese Zeile, oder wenn sie nicht lesbar ist, liest die App den Kartennamen. Dann muss der Spieler Edition und Sprache prüfen.
+- Vor dem Hinzufügen lassen sich Sprache, Foil oder Etched, Anzahl und eine andere Fassung wählen. Jede Übernahme lässt sich rückgängig machen.
+- Dauerscan erkennt Karten automatisch, fügt sie aber erst nach Bestätigung hinzu. Dieselbe Karte wird direkt danach einige Sekunden lang nicht erneut gemeldet.
+- Ohne Kamerazugriff geht ein Foto, auf dem die Karte bildfüllend ist. Außerdem gibt es eine Suche von Hand.
+- Die Texterkennung (Tesseract) läuft im Browser. Beim ersten Scan lädt sie einige Megabyte nach.
+- Gescannte Karten landen in derselben Sammlung wie der CSV-Import, im Prototyp nur auf dem Gerät.
+
 ## Konten und Rollen
 
 - Jeder Spieler legt ein Konto mit Anzeigename, E-Mail und Passwort an. Daten liegen bei Supabase, Tabellen und Zugriffsregeln stehen in `supabase/schema.sql`.
