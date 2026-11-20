@@ -71,6 +71,11 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
 .list li a{display:flex;gap:10px;padding:9px 2px;align-items:baseline;text-decoration:none}
 .list li i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--muted);min-width:22px;text-align:right}
 .list li em{font-style:normal;color:var(--muted);margin-left:auto;font-size:13px;white-space:nowrap}
+.round{gap:10px}
+.code{font-family:var(--num);font-size:30px;font-weight:700;letter-spacing:.12em}
+.clock{font-family:var(--num);font-size:64px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.clock.over{color:var(--danger)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .tabs button{height:44px;border-radius:12px;border:1.5px solid var(--line);font-weight:600;background:var(--surface)}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
@@ -89,7 +94,8 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
   var sb = null;
   var U = null, P = null;
   var cloud = [], events = [], myRegs = {}, orgRegs = [], profiles = [];
-  var V = {view:'home', mode:'login', eventId:null, regId:null, busy:false, err:'', msg:'', confirm:'', f:{}};
+  var V = {view:'home', mode:'login', eventId:null, regId:null, busy:false, err:'', msg:'', confirm:'', f:{}, needSql:false};
+  var CLK = {off:0, synced:0};
 
   function esc(t){
     return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, function(c){
@@ -184,7 +190,12 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     var d = await sb.from('decks').select('id, name, data, updated_at').order('updated_at', {ascending:false});
     if(d.error) return fail(d.error);
     cloud = d.data || [];
-    var e = await sb.from('events').select('id, name, starts_on, locked, created_at').order('starts_on', {ascending:true, nullsFirst:false});
+    var e = await sb.from('events').select('id, name, starts_on, locked, created_at, code, round_no, round_minutes, round_ends_at, round_paused_ms').order('starts_on', {ascending:true, nullsFirst:false});
+    V.needSql = false;
+    if(e.error && /column|code|round_/i.test(e.error.message || '')){
+      V.needSql = true;
+      e = await sb.from('events').select('id, name, starts_on, locked, created_at').order('starts_on', {ascending:true, nullsFirst:false});
+    }
     if(e.error) return fail(e.error);
     events = e.data || [];
     var g = await sb.from('registrations').select('id, event_id, player, deck_name, deck, updated_at, profiles(display_name)');
@@ -257,7 +268,7 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
       h += '<h2>Turnierverwaltung</h2><p class="hint">Diesen Bereich sehen nur Turnierverwalter.</p>' +
         events.map(function(ev){
           var n = regsOf(ev.id).length;
-          return '<button class="card" data-a="openevent" data-id="' + ev.id + '"><span><b>' + esc(ev.name) + '</b><small>' + n + (n === 1 ? ' Anmeldung' : ' Anmeldungen') + ' · ' + (ev.locked ? 'geschlossen' : 'offen') + '</small></span></button>';
+          return '<button class="card" data-a="openevent" data-id="' + ev.id + '"><span><b>' + esc(ev.name) + '</b><small>' + n + (n === 1 ? ' Anmeldung' : ' Anmeldungen') + ' · ' + (ev.locked ? 'geschlossen' : 'offen') + (ev.code ? ' · Code ' + esc(ev.code) : '') + '</small>' + (ev.round_ends_at ? '<small>Runde ' + ev.round_no + ' läuft</small>' : '') + '</span></button>';
         }).join('') +
         '<div class="box"><b>Neues Turnier</b><label class="f">Name<input class="txt" type="text" maxlength="60" data-f="evname" value="' + esc(V.f.evname || '') + '" placeholder="Turnier 1"></label>' +
         '<label class="f">Datum<input class="txt" type="date" data-f="evdate" value="' + esc(V.f.evdate || '') + '"></label>' +
@@ -265,6 +276,69 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     }
     return h + '</main>';
   }
+  /* ---------- Rundensteuerung ---------- */
+  function rLeft(ev){
+    if(!ev.round_ends_at) return null;
+    if(ev.round_paused_ms !== null && ev.round_paused_ms !== undefined) return ev.round_paused_ms;
+    return Date.parse(ev.round_ends_at) - (Date.now() + CLK.off);
+  }
+  function mmss(ms){
+    var s = Math.max(0, Math.ceil(ms / 1000)), m = Math.floor(s / 60); s = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function rStatus(ev){
+    if(!ev.round_ends_at) return ev.round_no ? 'Runde ' + ev.round_no + ' ist beendet.' : 'Noch keine Runde freigegeben.';
+    if(ev.round_paused_ms !== null && ev.round_paused_ms !== undefined) return 'Runde ' + ev.round_no + ' ist pausiert.';
+    return rLeft(ev) <= 0 ? 'Runde ' + ev.round_no + ': Die Zeit ist abgelaufen. Die Tische spielen ihre Schlussrunde.' : 'Runde ' + ev.round_no + ' läuft.';
+  }
+  function roundBox(ev){
+    if(V.needSql || !ev.code){
+      return '<div class="box"><b>Rundensteuerung</b><p class="hint">Dafür fehlt noch ein Update der Datenbank. Führe die aktuelle Datei supabase/schema.sql im SQL Editor von Supabase aus und lade die Seite neu.</p></div>';
+    }
+    var active = !!ev.round_ends_at, paused = active && ev.round_paused_ms !== null && ev.round_paused_ms !== undefined, left = rLeft(ev);
+    var mins = V.f.rmin !== undefined ? V.f.rmin : String(ev.round_minutes || 60);
+    var h = '<div class="box round"><b>Rundensteuerung</b>' +
+      '<p class="hint">Code für die Tische</p><p class="code">' + esc(ev.code) + '</p>' +
+      '<p class="hint">Diesen Code einmal im Pod-Zähler unter „Turnier“ eintragen. Danach übernimmt jeder Tisch die Rundenzeit von hier.</p>' +
+      '<p id="rstatus">' + esc(rStatus(ev)) + '</p>' +
+      (active ? '<p class="clock' + (left <= 0 ? ' over' : '') + '" id="rclock">' + mmss(left) + '</p>' : '') +
+      '<label class="f">Rundendauer in Minuten<input class="txt" type="number" inputmode="numeric" min="1" max="240" data-f="rmin" value="' + esc(mins) + '"></label>';
+    if(!active){
+      h += '<button class="primary" data-a="round" data-v="start" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>Runde ' + ((ev.round_no || 0) + 1) + ' freigeben</button>';
+    }else{
+      h += '<div class="grid2"><button class="ghost" data-a="round" data-v="' + (paused ? 'resume' : 'pause') + '" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>' + (paused ? 'Fortsetzen' : 'Pausieren') + '</button>' +
+        '<button class="ghost" data-a="round" data-v="extend" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>+5 Minuten</button></div>' +
+        '<button class="ghost" data-a="round" data-v="stop" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>' + (V.confirm === 'stop' + ev.id ? 'Wirklich beenden? Die Tische verlieren ihre Zeit.' : 'Runde beenden') + '</button>' +
+        '<button class="ghost" data-a="round" data-v="start" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>' + (V.confirm === 'start' + ev.id ? 'Wirklich? Runde ' + ev.round_no + ' läuft noch.' : 'Runde ' + (ev.round_no + 1) + ' freigeben') + '</button>';
+    }
+    return h + '</div>';
+  }
+  function applyEvent(row){
+    if(!row) return;
+    events = events.map(function(x){ return x.id === row.id ? Object.assign({}, x, row) : x; });
+  }
+  async function syncRound(){
+    var ev = eventById(V.eventId);
+    if(!ev || !ev.code || !isOrg() || V.view !== 'event') return;
+    var t0 = Date.now(), r = await sb.rpc('round_state', {c:ev.code}), t1 = Date.now();
+    var row = r && !r.error && r.data && r.data[0];
+    if(!row) return;
+    CLK.off = Date.parse(row.server_now) - (t0 + t1) / 2; CLK.synced = t1;
+    var before = JSON.stringify([ev.round_no, ev.round_ends_at, ev.round_paused_ms]);
+    applyEvent({id:ev.id, round_no:row.round_no, round_minutes:row.round_minutes, round_ends_at:row.ends_at, round_paused_ms:row.paused_ms});
+    if(before !== JSON.stringify([row.round_no, row.ends_at, row.paused_ms])) render();
+  }
+  setInterval(function(){
+    if(V.view !== 'event') return;
+    var ev = eventById(V.eventId), el = document.getElementById('rclock');
+    if(!ev || !el) return;
+    var left = rLeft(ev);
+    el.textContent = mmss(left);
+    var over = left <= 0;
+    if(over !== el.classList.contains('over')){ el.classList.toggle('over', over); var st = document.getElementById('rstatus'); if(st) st.textContent = rStatus(ev); }
+  }, 500);
+  setInterval(function(){ if(V.view === 'event' && !document.hidden) syncRound().catch(function(){}); }, 10000);
+
   function viewEvent(){
     var ev = eventById(V.eventId); if(!ev || !isOrg()){ V.view = 'home'; return viewHome(); }
     var regs = regsOf(ev.id).slice().sort(function(a, b){ return nameOfReg(a).localeCompare(nameOfReg(b)); });
@@ -273,6 +347,7 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     var bad = regs.filter(function(x){ return badCount(x.deck); }).length;
     var h = '<main class="page"><button class="back" data-a="home">Zurück</button><h1>' + esc(ev.name) + '</h1>' + notes() +
       '<p class="lead">' + (ev.starts_on ? day(ev.starts_on) + ' · ' : '') + regs.length + (regs.length === 1 ? ' Anmeldung' : ' Anmeldungen') + ', davon ' + bad + ' mit Hinweisen. Anmeldung ' + (ev.locked ? 'geschlossen' : 'offen') + '.</p>' +
+      roundBox(ev) +
       '<button class="ghost" data-a="lock" data-id="' + ev.id + '">' + (ev.locked ? 'Anmeldung wieder öffnen' : 'Anmeldung schließen') + '</button>' +
       '<h2>Angemeldete Decks</h2>' +
       (regs.length ? regs.map(function(x){
@@ -315,12 +390,12 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
   async function act(a, b){
     var id = b.getAttribute('data-id');
     V.err = ''; V.msg = '';
-    if(a !== 'deldeck' && a !== 'delevent') V.confirm = '';
+    if(a !== 'deldeck' && a !== 'delevent' && a !== 'round') V.confirm = '';
     switch(a){
       case 'mode': V.mode = b.getAttribute('data-v'); break;
       case 'home': V.view = 'home'; window.scrollTo(0, 0); break;
       case 'backevent': V.view = 'event'; window.scrollTo(0, 0); break;
-      case 'openevent': V.view = 'event'; V.eventId = id; window.scrollTo(0, 0); break;
+      case 'openevent': V.view = 'event'; V.eventId = id; delete V.f.rmin; window.scrollTo(0, 0); render(); syncRound().catch(function(){}); return;
       case 'openreg': V.view = 'reg'; V.regId = id; window.scrollTo(0, 0); break;
       case 'login': {
         if(!V.f.email || !V.f.pw){ V.err = 'Bitte E-Mail und Passwort eintragen.'; break; }
@@ -402,6 +477,21 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
         V.busy = false;
         if(n.error) return fail(n.error);
         V.f.evname = ''; V.f.evdate = ''; V.msg = 'Turnier angelegt.'; await loadAll(); return;
+      }
+      case 'round': {
+        var rv = b.getAttribute('data-v'), re = eventById(id); if(!re) break;
+        if((rv === 'stop' || (rv === 'start' && re.round_ends_at)) && V.confirm !== rv + id){ V.confirm = rv + id; break; }
+        V.confirm = '';
+        var mins = parseInt(V.f.rmin !== undefined ? V.f.rmin : re.round_minutes, 10);
+        if(rv === 'start' && !(mins >= 1 && mins <= 240)){ V.err = 'Die Rundendauer muss zwischen 1 und 240 Minuten liegen.'; break; }
+        V.busy = true; render();
+        var rr = await sb.rpc('round_control', {e:id, action:rv, minutes:rv === 'start' ? mins : (rv === 'extend' ? 5 : null)});
+        V.busy = false;
+        if(rr.error) return fail(rr.error);
+        applyEvent(Array.isArray(rr.data) ? rr.data[0] : rr.data);
+        V.msg = rv === 'start' ? 'Runde ' + eventById(id).round_no + ' ist freigegeben. Die Zeit läuft an allen verbundenen Tischen.' : rv === 'pause' ? 'Runde pausiert.' : rv === 'resume' ? 'Runde läuft weiter.' : rv === 'extend' ? 'Runde um 5 Minuten verlängert.' : 'Runde beendet.';
+        await syncRound().catch(function(){});
+        break;
       }
       case 'lock': {
         var ev = eventById(id); if(!ev) break;

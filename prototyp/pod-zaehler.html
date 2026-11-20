@@ -212,6 +212,12 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
 .panel.art .cgrid{background:rgba(0,0,0,.6)}
 .cell.art{background-position:center;background-size:cover;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}
 .ctile.art{background-position:center;background-size:cover;color:#fff;text-shadow:0 0 6px #000,0 1px 3px #000,0 0 2px #000}
+.evbox{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:15px}
+.evbox.col{flex-direction:column;align-items:stretch}
+.evrow{display:flex;gap:8px}
+.evrow input{flex:1;min-width:0;font:inherit;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.evbox .pick{align-self:center;flex:none}
+.everr{color:var(--danger);font-weight:500}
 @media (prefers-reduced-motion: reduce){ .toggle i,.toggle i::after{transition:none} }
 </style>
 </head>
@@ -235,7 +241,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
   function fresh(){
     return {v:1, phase:'setup', startLife:40, autoLife:true, flip:true, starter:0,
       names:['Spieler 1','Spieler 2','Spieler 3','Spieler 4'], cmds:['','','',''], cmds2:['','','',''], partner:[false,false,false,false], art:[[null,null],[null,null],[null,null],[null,null]], players:null, extra:null, session:[],
-      timer:{endsAt:null, remaining:ROUND_MS}, closing:null, timeout:false};
+      timer:{endsAt:null, remaining:ROUND_MS}, closing:null, timeout:false, ev:null};
   }
   function load(){
     try{
@@ -253,6 +259,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         if(!s.timer) s.timer = {endsAt:null, remaining:ROUND_MS};
         if(s.closing === undefined) s.closing = null;
         s.timeout = !!s.timeout;
+        if(s.ev === undefined) s.ev = null;
         return s;
       }
     }catch(e){}
@@ -430,7 +437,78 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
       S.phase = 'result'; sheet = null; S.closing = null; S.timeout = false;
     }
   }
-  function timeLeft(){ return S.timer.endsAt ? S.timer.endsAt - Date.now() : S.timer.remaining; }
+  /* ---------- Zentrale Rundenzeit über den Turnier-Code ---------- */
+  var SB_URL = 'https://bhihuamtmnyguelcmsst.supabase.co', SB_KEY = 'sb_publishable_QxuC8ENxUWBdLLMDAMy83Q_UVbNhq8e';
+  var EV = {ok:false, off:0, round:0, ends:null, paused:null, synced:0, err:'', busy:false, code:''};
+  var sbLoad = null;
+  function sbClient(){
+    if(sbLoad) return sbLoad;
+    sbLoad = new Promise(function(res, rej){
+      if(window.supabase && window.supabase.createClient) return res();
+      var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.onload = res; s.onerror = function(){ rej(new Error('Keine Verbindung zum Server. Prüfe die Internetverbindung.')); };
+      document.head.appendChild(s);
+    }).then(function(){ return window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false, autoRefreshToken:false}}); });
+    sbLoad.catch(function(){ sbLoad = null; });
+    return sbLoad;
+  }
+  async function evFetch(code){
+    var sb = await sbClient();
+    var t0 = Date.now(), r = await sb.rpc('round_state', {c:code}), t1 = Date.now();
+    if(r.error) throw new Error('Der Server antwortet gerade nicht.');
+    var row = r.data && r.data[0];
+    if(!row) return null;
+    return {row:row, off:Date.parse(row.server_now) - (t0 + t1) / 2, t:t1};
+  }
+  function evApply(x){
+    var before = [EV.ok, EV.round, EV.ends, EV.paused].join('|');
+    EV.ok = true; EV.off = x.off; EV.synced = x.t; EV.err = '';
+    EV.round = x.row.round_no; EV.ends = x.row.ends_at ? Date.parse(x.row.ends_at) : null;
+    EV.paused = (x.row.paused_ms === null || x.row.paused_ms === undefined) ? null : x.row.paused_ms;
+    if(S.ev && x.row.name && S.ev.name !== x.row.name){ S.ev.name = x.row.name; save(); }
+    return before !== [EV.ok, EV.round, EV.ends, EV.paused].join('|');
+  }
+  async function evSync(){
+    if(!S.ev || EV.busy) return;
+    EV.busy = true;
+    try{
+      var x = await evFetch(S.ev.code);
+      if(x){ if(evApply(x)) render(); }
+      else { EV.err = 'Das Turnier mit diesem Code gibt es nicht mehr.'; render(); }
+    }catch(e){ EV.err = e.message; }
+    finally{ EV.busy = false; }
+  }
+  async function evConnect(){
+    var code = String(EV.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if(code.length !== 6){ EV.err = 'Der Code hat sechs Zeichen.'; render(); return; }
+    EV.err = ''; EV.busy = true; render();
+    try{
+      var x = await evFetch(code);
+      if(!x) EV.err = 'Kein Turnier mit diesem Code gefunden.';
+      else { S.ev = {code:code, name:x.row.name}; evApply(x); EV.code = ''; save(); }
+    }catch(e){ EV.err = e.message; }
+    EV.busy = false; render();
+  }
+  function central(){ return !!S.ev; }
+  function waiting(){ return central() && (!EV.ok || EV.ends === null); }
+  function timeLeft(){
+    if(central()){
+      if(!EV.ok || EV.ends === null) return Infinity;
+      if(EV.paused !== null) return EV.paused;
+      return EV.ends - (Date.now() + EV.off);
+    }
+    return S.timer.endsAt ? S.timer.endsAt - Date.now() : S.timer.remaining;
+  }
+  function evBox(){
+    if(S.ev){
+      return '<div class="evbox"><span>Verbunden mit <b>' + esc(S.ev.name || 'Turnier') + '</b> (Code ' + esc(S.ev.code) + '). Die Rundenzeit kommt von der Turnierleitung.' +
+        (EV.err ? '<br><span class="everr">' + esc(EV.err) + '</span>' : '') + '</span><button class="pick" data-a="evoff">Trennen</button></div>';
+    }
+    return '<div class="evbox col"><span>Bei einem Turnier den Code der Turnierleitung eintragen. Dann startet die Zeit an allen Tischen gleichzeitig. Ohne Code läuft ein eigener 60-Minuten-Timer.</span>' +
+      '<div class="evrow"><input type="text" maxlength="8" autocapitalize="characters" autocomplete="off" data-evcode value="' + esc(EV.code || '') + '" placeholder="Code, z. B. K7Q2MX" aria-label="Turnier-Code">' +
+      '<button class="pick" data-a="evon"' + (EV.busy ? ' disabled' : '') + '>Verbinden</button></div>' +
+      (EV.err ? '<span class="everr">' + esc(EV.err) + '</span>' : '') + '</div>';
+  }
   function fmtTime(ms){
     var s = Math.max(0, Math.ceil(ms / 1000)), m = Math.floor(s / 60); s = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
@@ -502,6 +580,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
       '<button class="ghost" data-a="roll">Startspieler auswürfeln</button>' +
       '<h2>Lebenspunkte zu Beginn</h2><div class="seg">' + lifeOpts + '</div>' +
       toggle('autoLife', 'Commander-Schaden zieht Lebenspunkte ab', 'Jeder eingetragene Commander-Schaden senkt auch das Leben.') +
+      '<h2>Turnier</h2>' + evBox() +
       '<button class="primary" data-a="start">Spiel starten</button>' +
       (S.session.length ? '<button class="ghost" data-a="sheet" data-v="standings">Punktestand ansehen</button>' : '') +
       '</main>';
@@ -580,11 +659,14 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         bar = undo + '<p>Schlussrunde: ' + nameOf(step.i) + (step.fin ? ' beendet den laufenden Zug.' : ' ist ein letztes Mal dran.') + '</p>' +
           '<button class="act" data-a="closenext">Zug bestätigen</button>';
       }else if(timeLeft() <= 0){
-        bar = undo + '<p>Die 60 Minuten sind um.</p><button class="act" data-a="sheet" data-v="closing">Schlussrunde starten</button>';
+        bar = undo + '<p>Die Rundenzeit ist um.</p><button class="act" data-a="sheet" data-v="closing">Schlussrunde starten</button>';
+      }else if(waiting()){
+        bar = undo + '<p>' + nameOf(S.starter) + ' beginnt. ' + (EV.ok ? (EV.round ? 'Runde ' + EV.round + ' ist beendet. Wartet auf die nächste Runde.' : 'Wartet auf die Freigabe der Runde.') : 'Verbinde mit dem Turnier …') + '</p>' + menu;
       }else{
         var left = timeLeft();
-        bar = undo + '<p>' + nameOf(S.starter) + ' hat begonnen. Noch <span id="time"' + (left <= 600000 ? ' class="warn"' : '') + '>' + fmtTime(left) + '</span>' +
-          (S.timer.endsAt ? '' : ' (angehalten)') + (S.dayNight ? (S.dayNight === 'day' ? ', Tag' : ', Nacht') : '') + '</p>' + menu;
+        var paused = central() ? EV.paused !== null : !S.timer.endsAt;
+        bar = undo + '<p>' + (central() ? 'Runde ' + EV.round + ': ' : nameOf(S.starter) + ' hat begonnen. ') + 'Noch <span id="time"' + (left <= 600000 ? ' class="warn"' : '') + '>' + fmtTime(left) + '</span>' +
+          (paused ? ' (angehalten)' : '') + (central() && EV.synced && Date.now() - EV.synced > 45000 ? ' (offline)' : '') + (S.dayNight ? (S.dayNight === 'day' ? ', Tag' : ', Nacht') : '') + '</p>' + menu;
       }
     }
     return '<div class="table">' +
@@ -699,7 +781,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     }else if(sheet.type === 'menu'){
       body = '<div class="shead"><h2>Menü</h2>' + close + '</div>' +
         toggle('autoLife', 'Commander-Schaden zieht Lebenspunkte ab') +
-        '<button class="ghost" data-a="pause">' + (S.timer.endsAt ? 'Timer anhalten' : 'Timer fortsetzen') + '</button>' +
+        (central() ? '<p class="hint">Die Rundenzeit steuert die Turnierleitung' + (S.ev.name ? ' (' + esc(S.ev.name) + ')' : '') + '.</p>' : '<button class="ghost" data-a="pause">' + (S.timer.endsAt ? 'Timer anhalten' : 'Timer fortsetzen') + '</button>') +
         (S.closing || S.phase !== 'play' ? '' : '<button class="ghost" data-a="sheet" data-v="closing">Schlussrunde jetzt starten</button>') +
         '<button class="ghost" data-a="sheet" data-v="standings">Punktestand ansehen</button>' +
         '<button class="ghost warn" data-a="sheet" data-v="abort">Spiel abbrechen</button>' + credits();
@@ -755,6 +837,8 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     }else if(t && t.hasAttribute && t.hasAttribute('data-cmd')){
       S.cmds[+t.getAttribute('data-cmd')] = t.value;
       save(); cmdTyped(t, +t.getAttribute('data-cmd'), 0);
+    }else if(t && t.hasAttribute && t.hasAttribute('data-evcode')){
+      EV.code = t.value;
     }else if(t && t.hasAttribute && t.hasAttribute('data-cmd2')){
       S.cmds2[+t.getAttribute('data-cmd2')] = t.value;
       save(); cmdTyped(t, +t.getAttribute('data-cmd2'), 1);
@@ -863,7 +947,10 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         sheet = null; confirmOut(); normalizeClosing(); break;
       case 'confirmout': snap(); confirmOut(); normalizeClosing(); break;
       case 'extranext': snap(); extraNext(); normalizeClosing(); break;
+      case 'evon': evConnect(); return;
+      case 'evoff': S.ev = null; EV.ok = false; EV.err = ''; EV.ends = null; break;
       case 'pause':
+        if(central()) break;
         if(S.timer.endsAt) S.timer = {endsAt:null, remaining:S.timer.endsAt - Date.now()};
         else S.timer = {endsAt:Date.now() + S.timer.remaining, remaining:S.timer.remaining};
         sheet = null; break;
@@ -896,6 +983,10 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     }
     render();
   }
+
+  setInterval(function(){ if(S.ev && !document.hidden) evSync(); }, 5000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && S.ev) evSync(); });
+  if(S.ev) evSync();
 
   setInterval(function(){
     if(S.phase !== 'play' && S.phase !== 'extra') return;
