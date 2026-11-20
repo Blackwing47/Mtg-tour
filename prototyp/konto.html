@@ -268,7 +268,7 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
       h += '<h2>Turnierverwaltung</h2><p class="hint">Diesen Bereich sehen nur Turnierverwalter.</p>' +
         events.map(function(ev){
           var n = regsOf(ev.id).length;
-          return '<button class="card" data-a="openevent" data-id="' + ev.id + '"><span><b>' + esc(ev.name) + '</b><small>' + n + (n === 1 ? ' Anmeldung' : ' Anmeldungen') + ' · ' + (ev.locked ? 'geschlossen' : 'offen') + (ev.code ? ' · Code ' + esc(ev.code) : '') + '</small>' + (ev.round_ends_at ? '<small>Runde ' + ev.round_no + ' läuft</small>' : '') + '</span></button>';
+          return '<button class="card" data-a="openevent" data-id="' + ev.id + '"><span><b>' + esc(ev.name) + '</b><small>' + n + (n === 1 ? ' Anmeldung' : ' Anmeldungen') + ' · ' + (ev.locked ? 'geschlossen' : 'offen') + '</small>' + (ev.round_ends_at ? '<small>Runde ' + ev.round_no + ' läuft</small>' : '') + '</span></button>';
         }).join('') +
         '<div class="box"><b>Neues Turnier</b><label class="f">Name<input class="txt" type="text" maxlength="60" data-f="evname" value="' + esc(V.f.evname || '') + '" placeholder="Turnier 1"></label>' +
         '<label class="f">Datum<input class="txt" type="date" data-f="evdate" value="' + esc(V.f.evdate || '') + '"></label>' +
@@ -292,14 +292,13 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     return rLeft(ev) <= 0 ? 'Runde ' + ev.round_no + ': Die Zeit ist abgelaufen. Die Tische spielen ihre Schlussrunde.' : 'Runde ' + ev.round_no + ' läuft.';
   }
   function roundBox(ev){
-    if(V.needSql || !ev.code){
+    if(V.needSql){
       return '<div class="box"><b>Rundensteuerung</b><p class="hint">Dafür fehlt noch ein Update der Datenbank. Führe die aktuelle Datei supabase/schema.sql im SQL Editor von Supabase aus und lade die Seite neu.</p></div>';
     }
     var active = !!ev.round_ends_at, paused = active && ev.round_paused_ms !== null && ev.round_paused_ms !== undefined, left = rLeft(ev);
     var mins = V.f.rmin !== undefined ? V.f.rmin : String(ev.round_minutes || 60);
     var h = '<div class="box round"><b>Rundensteuerung</b>' +
-      '<p class="hint">Code für die Tische</p><p class="code">' + esc(ev.code) + '</p>' +
-      '<p class="hint">Diesen Code einmal im Pod-Zähler unter „Turnier“ eintragen. Danach übernimmt jeder Tisch die Rundenzeit von hier.</p>' +
+      '<p class="hint">Jeder geöffnete Pod-Zähler übernimmt die Rundenzeit von hier automatisch. Es läuft immer das Turnier, das du zuletzt gesteuert hast.</p>' +
       '<p id="rstatus">' + esc(rStatus(ev)) + '</p>' +
       (active ? '<p class="clock' + (left <= 0 ? ' over' : '') + '" id="rclock">' + mmss(left) + '</p>' : '') +
       '<label class="f">Rundendauer in Minuten<input class="txt" type="number" inputmode="numeric" min="1" max="240" data-f="rmin" value="' + esc(mins) + '"></label>';
@@ -319,10 +318,11 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
   }
   async function syncRound(){
     var ev = eventById(V.eventId);
-    if(!ev || !ev.code || !isOrg() || V.view !== 'event') return;
-    var t0 = Date.now(), r = await sb.rpc('round_state', {c:ev.code}), t1 = Date.now();
+    if(!ev || V.needSql || !isOrg() || V.view !== 'event') return;
+    var t0 = Date.now(), r = await sb.rpc('current_round'), t1 = Date.now();
     var row = r && !r.error && r.data && r.data[0];
     if(!row) return;
+    if(row.name !== ev.name){ CLK.off = Date.parse(row.server_now) - (t0 + t1) / 2; return; }
     CLK.off = Date.parse(row.server_now) - (t0 + t1) / 2; CLK.synced = t1;
     var before = JSON.stringify([ev.round_no, ev.round_ends_at, ev.round_paused_ms]);
     applyEvent({id:ev.id, round_no:row.round_no, round_minutes:row.round_minutes, round_ends_at:row.ends_at, round_paused_ms:row.paused_ms});
@@ -489,7 +489,7 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
         V.busy = false;
         if(rr.error) return fail(rr.error);
         applyEvent(Array.isArray(rr.data) ? rr.data[0] : rr.data);
-        V.msg = rv === 'start' ? 'Runde ' + eventById(id).round_no + ' ist freigegeben. Die Zeit läuft an allen verbundenen Tischen.' : rv === 'pause' ? 'Runde pausiert.' : rv === 'resume' ? 'Runde läuft weiter.' : rv === 'extend' ? 'Runde um 5 Minuten verlängert.' : 'Runde beendet.';
+        V.msg = rv === 'start' ? 'Runde ' + eventById(id).round_no + ' ist freigegeben. Die Zeit läuft an allen Tischen.' : rv === 'pause' ? 'Runde pausiert.' : rv === 'resume' ? 'Runde läuft weiter.' : rv === 'extend' ? 'Runde um 5 Minuten verlängert.' : 'Runde beendet.';
         await syncRound().catch(function(){});
         break;
       }

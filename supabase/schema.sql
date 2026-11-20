@@ -151,7 +151,7 @@ create policy registrations_delete on public.registrations for delete to authent
   using ((player = auth.uid() and public.event_open(event_id)) or public.is_organizer());
 
 -- ---------- Rundensteuerung (zentraler Timer für alle Tische) ----------
--- Die Turnierverwaltung gibt eine Runde frei, alle Tisch-Handys lesen die Zeit über den Turnier-Code.
+-- Die Turnierverwaltung gibt eine Runde frei, alle Tisch-Handys übernehmen die Zeit automatisch.
 -- Gerechnet wird mit der Uhr des Servers, damit falsch gehende Handyuhren keine Rolle spielen.
 
 alter table public.events add column if not exists code text;
@@ -159,6 +159,7 @@ alter table public.events add column if not exists round_no int not null default
 alter table public.events add column if not exists round_minutes int not null default 60;
 alter table public.events add column if not exists round_ends_at timestamptz;
 alter table public.events add column if not exists round_paused_ms int;
+alter table public.events add column if not exists round_changed_at timestamptz;
 create unique index if not exists events_code_idx on public.events(code);
 
 create or replace function public.new_event_code()
@@ -230,9 +231,22 @@ begin
   else
     raise exception 'Unbekannte Aktion.';
   end if;
+  update public.events set round_changed_at = now() where id = e;
   select * into ev from public.events where id = e;
   return ev;
 end;
+$$;
+
+-- Das laufende Turnier für alle Tische, ohne Anmeldung und ohne Code:
+-- das Turnier, dessen Runde die Turnierverwaltung zuletzt gesteuert hat, höchstens 12 Stunden zurück.
+create or replace function public.current_round()
+returns table(name text, round_no int, round_minutes int, ends_at timestamptz, paused_ms int, server_now timestamptz)
+language sql stable security definer set search_path = public as $$
+  select e.name, e.round_no, e.round_minutes, e.round_ends_at, e.round_paused_ms, now()
+  from public.events e
+  where e.round_changed_at > now() - interval '12 hours'
+  order by e.round_changed_at desc
+  limit 1;
 $$;
 
 -- Lesen für die Tische, auch ohne Anmeldung, nur mit dem Turnier-Code.
@@ -247,5 +261,7 @@ revoke execute on function public.round_control(uuid, text, int) from public, an
 grant execute on function public.round_control(uuid, text, int) to authenticated;
 revoke execute on function public.round_state(text) from public;
 grant execute on function public.round_state(text) to anon, authenticated;
+revoke execute on function public.current_round() from public;
+grant execute on function public.current_round() to anon, authenticated;
 revoke execute on function public.new_event_code() from public, anon, authenticated;
 revoke execute on function public.events_set_code() from public, anon, authenticated;

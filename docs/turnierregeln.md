@@ -87,7 +87,10 @@ Ob mehrere Spieler gleichzeitig ausscheiden, entscheidet der Tisch: Erst alle Sc
 ## Zeitlimit
 
 - Eine Runde dauert 60 Minuten. Der Timer läuft im Zähler mit und warnt in den letzten zehn Minuten.
-- Bei Turnieren gibt die Turnierverwaltung jede Runde zentral frei („Runde freigeben“). Alle Tische, die mit dem Turnier-Code verbunden sind, starten dann gleichzeitig. Gerechnet wird mit der Serverzeit, falsch gehende Handyuhren spielen keine Rolle.
+- Bei Turnieren gibt die Turnierverwaltung jede Runde zentral frei („Runde freigeben“). Jeder geöffnete Pod-Zähler erkennt das laufende Turnier von selbst, ohne Code und ohne Anmeldung, und startet die Zeit gleichzeitig. Gerechnet wird mit der Serverzeit, falsch gehende Handyuhren spielen keine Rolle.
+- Als laufendes Turnier gilt das Turnier, dessen Runde die Turnierverwaltung zuletzt gesteuert hat, höchstens 12 Stunden zurück. Es läuft also immer nur ein Turnier gleichzeitig.
+- Zwischen zwei Runden zeigen die Tische „Wartet auf die nächste Runde“. Die nächste Runde startet erst, wenn die Turnierverwaltung sie freigibt.
+- Für eine freie Partie während eines Turniers lässt sich im Zähler die Turnierzeit abschalten.
 - Die Turnierverwaltung kann eine Runde pausieren, um 5 Minuten verlängern oder beenden. Die Tische übernehmen das innerhalb weniger Sekunden. Am Tisch selbst lässt sich die Zeit dann nicht anhalten.
 - Ohne Turnier-Code läuft im Zähler ein eigener 60-Minuten-Timer ab Spielbeginn.
 - Nach Ablauf beginnt die Schlussrunde: Der aktive Spieler beendet seinen Zug, danach ist jeder noch lebende Spieler genau einmal dran.
