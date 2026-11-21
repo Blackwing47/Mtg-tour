@@ -1,10 +1,10 @@
--- MTG Tour: Update für die zentrale Rundenfreigabe.
--- Komplett in den SQL Editor von Supabase einfügen, nichts markieren, dann auf Run tippen.
--- Kann mehrfach ausgeführt werden. Vorhandene Daten bleiben erhalten.
+/* MTG Tour: Update für die zentrale Rundenfreigabe. */
+/* Komplett in den SQL Editor von Supabase einfügen, nichts markieren, dann auf Run tippen. */
+/* Kann mehrfach ausgeführt werden. Vorhandene Daten bleiben erhalten. */
 
--- ---------- Rundensteuerung (zentraler Timer für alle Tische) ----------
--- Die Turnierverwaltung gibt eine Runde frei, alle Tisch-Handys übernehmen die Zeit automatisch.
--- Gerechnet wird mit der Uhr des Servers, damit falsch gehende Handyuhren keine Rolle spielen.
+/* ---------- Rundensteuerung (zentraler Timer für alle Tische) ---------- */
+/* Die Turnierverwaltung gibt eine Runde frei, alle Tisch-Handys übernehmen die Zeit automatisch. */
+/* Gerechnet wird mit der Uhr des Servers, damit falsch gehende Handyuhren keine Rolle spielen. */
 
 alter table public.events add column if not exists code text;
 alter table public.events add column if not exists round_no int not null default 0;
@@ -47,7 +47,7 @@ create trigger events_code before insert on public.events
 
 update public.events set code = public.new_event_code() where code is null;
 
--- Steuerung nur für Turnierverwalter: start, pause, resume, extend, stop.
+/* Steuerung nur für Turnierverwalter: start, pause, resume, extend, stop. */
 create or replace function public.round_control(e uuid, action text, minutes int default null)
 returns public.events language plpgsql security definer set search_path = public as $$
 declare
@@ -89,8 +89,8 @@ begin
 end;
 $$;
 
--- Das laufende Turnier für alle Tische, ohne Anmeldung und ohne Code:
--- das Turnier, dessen Runde die Turnierverwaltung zuletzt gesteuert hat, höchstens 12 Stunden zurück.
+/* Das laufende Turnier für alle Tische, ohne Anmeldung und ohne Code: */
+/* das Turnier, dessen Runde die Turnierverwaltung zuletzt gesteuert hat, höchstens 12 Stunden zurück. */
 create or replace function public.current_round()
 returns table(name text, round_no int, round_minutes int, ends_at timestamptz, paused_ms int, server_now timestamptz)
 language sql stable security definer set search_path = public as $$
@@ -101,7 +101,7 @@ language sql stable security definer set search_path = public as $$
   limit 1;
 $$;
 
--- Lesen für die Tische, auch ohne Anmeldung, nur mit dem Turnier-Code.
+/* Lesen für die Tische, auch ohne Anmeldung, nur mit dem Turnier-Code. */
 create or replace function public.round_state(c text)
 returns table(name text, round_no int, round_minutes int, ends_at timestamptz, paused_ms int, server_now timestamptz)
 language sql stable security definer set search_path = public as $$
@@ -117,3 +117,5 @@ revoke execute on function public.current_round() from public;
 grant execute on function public.current_round() to anon, authenticated;
 revoke execute on function public.new_event_code() from public, anon, authenticated;
 revoke execute on function public.events_set_code() from public, anon, authenticated;
+
+select 'Update für die Rundenfreigabe ist eingespielt' as ergebnis;
