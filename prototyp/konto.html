@@ -76,6 +76,13 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
 .clock{font-family:var(--num);font-size:64px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .clock.over{color:var(--danger)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tbl{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.tbl .row b{font-size:17px}
+.tbl .tt{font-family:var(--num);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+.tbl .tt.over{color:var(--danger)}
+.tbtn{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tbtn button{border:1.5px solid var(--line);border-radius:10px;min-height:42px;background:var(--bg);font-weight:600}
+.mrow{display:grid;grid-template-columns:1fr 2fr;gap:8px;align-items:end}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .tabs button{height:44px;border-radius:12px;border:1.5px solid var(--line);font-weight:600;background:var(--surface)}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
@@ -96,6 +103,7 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
   var cloud = [], events = [], myRegs = {}, orgRegs = [], profiles = [];
   var V = {view:'home', mode:'login', eventId:null, regId:null, busy:false, err:'', msg:'', confirm:'', f:{}, needSql:false};
   var CLK = {off:0, synced:0};
+  var TBL = {rows:[], ev:null, missing:false};
 
   function esc(t){
     return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, function(c){
@@ -309,8 +317,43 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
         '<button class="ghost" data-a="round" data-v="extend" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>+5 Minuten</button></div>' +
         '<button class="ghost" data-a="round" data-v="stop" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>' + (V.confirm === 'stop' + ev.id ? 'Wirklich beenden? Die Tische verlieren ihre Zeit.' : 'Runde beenden') + '</button>' +
         '<button class="ghost" data-a="round" data-v="start" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>' + (V.confirm === 'start' + ev.id ? 'Wirklich? Runde ' + ev.round_no + ' läuft noch.' : 'Runde ' + (ev.round_no + 1) + ' freigeben') + '</button>';
+      h += tablesBox(ev);
     }
     return h + '</div>';
+  }
+  var STATUS = {setup:'Einrichtung', play:'Spiel läuft', extra:'Zusatzrunde', result:'Ergebnis wird bestätigt', saved:'Ergebnis bestätigt'};
+  function tExtra(t, ev){ return t.extra_round === ev.round_no ? (t.extra_minutes || 0) : 0; }
+  function tLeft(t, ev){ var l = rLeft(ev); return l === null ? null : l + tExtra(t, ev) * 60000; }
+  function tablesBox(ev){
+    if(TBL.missing){
+      return '<div class="tbl"><b>Tische</b><p class="hint">Für Zusatzzeit pro Tisch fehlt noch ein Update der Datenbank. Öffne <a href="sql.html">Datenbank-Update</a> und spiele es ein.</p></div>';
+    }
+    var now = Date.now() + CLK.off;
+    var rows = (TBL.ev === ev.id ? TBL.rows : []).filter(function(t){
+      return (t.last_seen && now - Date.parse(t.last_seen) < 90000) || tExtra(t, ev) > 0;
+    }).sort(function(a, b){ return a.table_no - b.table_no; });
+    var h = '<div class="tbl"><b>Tische (' + rows.length + ')</b>' +
+      (rows.length ? '' : '<p class="hint">Noch kein Tisch gemeldet. Im Pod-Zähler unter „Turnier“ die Tischnummer eintragen.</p>');
+    rows.forEach(function(t){
+      var x = tExtra(t, ev), l = tLeft(t, ev), seen = t.last_seen && now - Date.parse(t.last_seen) < 90000;
+      h += '<div class="row"><span><b>Tisch ' + t.table_no + '</b><small>' + (seen ? esc(STATUS[t.status] || 'verbunden') : 'nicht verbunden') + (x ? ' · +' + x + ' Min' : '') + '</small>' +
+        (t.players ? '<small>' + esc(t.players) + '</small>' : '') + '</span>' +
+        '<span class="tt' + (l <= 0 ? ' over' : '') + '" id="tclock-' + t.table_no + '">' + mmss(l) + '</span></div>' +
+        '<div class="tbtn">' + [1, 3, 5, -1].map(function(m){
+          return '<button data-a="tblx" data-t="' + t.table_no + '" data-v="' + m + '" data-id="' + ev.id + '"' + (V.busy || (m < 0 && !x) ? ' disabled' : '') + '>' + (m > 0 ? '+' + m : '−' + (-m)) + ' Min</button>';
+        }).join('') + '</div>';
+    });
+    return h + '<div class="mrow"><label class="f">Tisch-Nr.<input class="txt" type="number" inputmode="numeric" min="1" max="99" data-f="tno" value="' + esc(V.f.tno || '') + '"></label>' +
+      '<button class="ghost" data-a="tblx" data-t="manual" data-v="5" data-id="' + ev.id + '"' + (V.busy ? ' disabled' : '') + '>+5 Min an diesen Tisch</button></div>' +
+      '<p class="hint">Zusatzzeit gilt nur für die laufende Runde und verfällt mit der nächsten Freigabe.</p></div>';
+  }
+  async function loadTables(ev){
+    var r = await sb.from('event_tables').select('table_no, status, players, last_seen, extra_round, extra_minutes').eq('event_id', ev.id);
+    if(r.error){ TBL.missing = /event_tables|relation|schema cache|does not exist/i.test(r.error.message || ''); return false; }
+    TBL.missing = false;
+    var before = JSON.stringify(TBL.ev === ev.id ? TBL.rows.map(function(t){ return [t.table_no, t.status, t.players, t.extra_round, t.extra_minutes]; }) : null);
+    TBL.rows = r.data || []; TBL.ev = ev.id;
+    return before !== JSON.stringify(TBL.rows.map(function(t){ return [t.table_no, t.status, t.players, t.extra_round, t.extra_minutes]; }));
   }
   function applyEvent(row){
     if(!row) return;
@@ -326,7 +369,8 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     CLK.off = Date.parse(row.server_now) - (t0 + t1) / 2; CLK.synced = t1;
     var before = JSON.stringify([ev.round_no, ev.round_ends_at, ev.round_paused_ms]);
     applyEvent({id:ev.id, round_no:row.round_no, round_minutes:row.round_minutes, round_ends_at:row.ends_at, round_paused_ms:row.paused_ms});
-    if(before !== JSON.stringify([row.round_no, row.ends_at, row.paused_ms])) render();
+    var tchanged = row.ends_at ? await loadTables(eventById(ev.id)) : false;
+    if(before !== JSON.stringify([row.round_no, row.ends_at, row.paused_ms]) || tchanged) render();
   }
   setInterval(function(){
     if(V.view !== 'event') return;
@@ -336,8 +380,12 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     el.textContent = mmss(left);
     var over = left <= 0;
     if(over !== el.classList.contains('over')){ el.classList.toggle('over', over); var st = document.getElementById('rstatus'); if(st) st.textContent = rStatus(ev); }
+    if(TBL.ev === ev.id) TBL.rows.forEach(function(t){
+      var te = document.getElementById('tclock-' + t.table_no); if(!te) return;
+      var tl = tLeft(t, ev); te.textContent = mmss(tl); te.classList.toggle('over', tl <= 0);
+    });
   }, 500);
-  setInterval(function(){ if(V.view === 'event' && !document.hidden) syncRound().catch(function(){}); }, 10000);
+  setInterval(function(){ if(V.view === 'event' && !document.hidden) syncRound().catch(function(){}); }, 6000);
 
   function viewEvent(){
     var ev = eventById(V.eventId); if(!ev || !isOrg()){ V.view = 'home'; return viewHome(); }
@@ -391,6 +439,7 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
     var id = b.getAttribute('data-id');
     V.err = ''; V.msg = '';
     if(a !== 'deldeck' && a !== 'delevent' && a !== 'round') V.confirm = '';
+    if(a === 'tblx') V.msg = '';
     switch(a){
       case 'mode': V.mode = b.getAttribute('data-v'); break;
       case 'home': V.view = 'home'; window.scrollTo(0, 0); break;
@@ -491,6 +540,20 @@ input.txt,select.txt{font:inherit;color:inherit;background:var(--surface);border
         applyEvent(Array.isArray(rr.data) ? rr.data[0] : rr.data);
         V.msg = rv === 'start' ? 'Runde ' + eventById(id).round_no + ' ist freigegeben. Die Zeit läuft an allen Tischen.' : rv === 'pause' ? 'Runde pausiert.' : rv === 'resume' ? 'Runde läuft weiter.' : rv === 'extend' ? 'Runde um 5 Minuten verlängert.' : 'Runde beendet.';
         await syncRound().catch(function(){});
+        break;
+      }
+      case 'tblx': {
+        var tv = +b.getAttribute('data-v'), tt = b.getAttribute('data-t');
+        var tno = tt === 'manual' ? parseInt(V.f.tno, 10) : +tt;
+        if(!(tno >= 1 && tno <= 99)){ V.err = 'Trage eine Tischnummer zwischen 1 und 99 ein.'; break; }
+        V.busy = true; render();
+        var tr = await sb.rpc('table_extra', {e:id, t:tno, minutes:tv});
+        V.busy = false;
+        if(tr.error) return fail(tr.error);
+        var nx = Array.isArray(tr.data) ? tr.data[0] : tr.data;
+        V.msg = 'Tisch ' + tno + ': ' + (nx ? '+' + nx + ' Minuten Zusatzzeit in dieser Runde.' : 'keine Zusatzzeit mehr.');
+        if(tt === 'manual') V.f.tno = '';
+        var tev = eventById(id); if(tev) await loadTables(tev);
         break;
       }
       case 'lock': {

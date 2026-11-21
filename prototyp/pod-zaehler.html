@@ -220,6 +220,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
 .everr{color:var(--danger);font-weight:500}
 .evcheck{display:flex;gap:10px;align-items:center;font-weight:500}
 .evcheck input{width:22px;height:22px;flex:none;accent-color:var(--ink)}
+.evcheck input.tno{width:76px;height:40px;font:inherit;font-weight:600;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:0 10px}
 @media (prefers-reduced-motion: reduce){ .toggle i,.toggle i::after{transition:none} }
 </style>
 </head>
@@ -243,7 +244,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
   function fresh(){
     return {v:1, phase:'setup', startLife:40, autoLife:true, flip:true, starter:0,
       names:['Spieler 1','Spieler 2','Spieler 3','Spieler 4'], cmds:['','','',''], cmds2:['','','',''], partner:[false,false,false,false], art:[[null,null],[null,null],[null,null],[null,null]], players:null, extra:null, session:[],
-      timer:{endsAt:null, remaining:ROUND_MS}, closing:null, timeout:false, useTour:true};
+      timer:{endsAt:null, remaining:ROUND_MS}, closing:null, timeout:false, useTour:true, tableNo:null};
   }
   function load(){
     try{
@@ -262,6 +263,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         if(s.closing === undefined) s.closing = null;
         s.timeout = !!s.timeout;
         if(s.useTour === undefined) s.useTour = true;
+        if(s.tableNo === undefined) s.tableNo = null;
         delete s.ev;
         return s;
       }
@@ -442,7 +444,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
   }
   /* ---------- Zentrale Rundenzeit über den Turnier-Code ---------- */
   var SB_URL = 'https://bhihuamtmnyguelcmsst.supabase.co', SB_KEY = 'sb_publishable_QxuC8ENxUWBdLLMDAMy83Q_UVbNhq8e';
-  var EV = {live:false, name:'', off:0, round:0, ends:null, paused:null, synced:0, err:'', busy:false, checked:false};
+  var EV = {live:false, name:'', off:0, round:0, ends:null, paused:null, synced:0, err:'', busy:false, checked:false, extra:0, noTables:false};
   var sbLoad = null;
   function sbClient(){
     if(sbLoad) return sbLoad;
@@ -458,10 +460,13 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
   async function evSync(){
     if(EV.busy) return;
     EV.busy = true;
-    var before = [EV.live, EV.name, EV.round, EV.ends, EV.paused, EV.checked, EV.err].join('|');
+    var before = [EV.live, EV.name, EV.round, EV.ends, EV.paused, EV.checked, EV.err, EV.extra].join('|');
     try{
       var sb = await sbClient();
-      var t0 = Date.now(), r = await sb.rpc('current_round'), t1 = Date.now();
+      var useT = S.tableNo && !EV.noTables;
+      var pl = (S.players ? S.players.map(function(q){ return q.name; }) : S.names).join(', ');
+      var t0 = Date.now(), r = useT ? await sb.rpc('table_sync', {t:S.tableNo, st:S.phase, pl:pl}) : await sb.rpc('current_round'), t1 = Date.now();
+      if(r.error && useT){ EV.noTables = true; t0 = Date.now(); r = await sb.rpc('current_round'); t1 = Date.now(); }
       if(r.error) throw new Error('Der Server antwortet gerade nicht.');
       var row = r.data && r.data[0];
       EV.err = ''; EV.checked = true; EV.synced = t1;
@@ -469,30 +474,34 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
         EV.live = true; EV.name = row.name; EV.off = Date.parse(row.server_now) - (t0 + t1) / 2;
         EV.round = row.round_no; EV.ends = row.ends_at ? Date.parse(row.ends_at) : null;
         EV.paused = (row.paused_ms === null || row.paused_ms === undefined) ? null : row.paused_ms;
-      }else{ EV.live = false; EV.name = ''; EV.ends = null; EV.paused = null; }
+        EV.extra = row.extra_minutes || 0;
+      }else{ EV.live = false; EV.name = ''; EV.ends = null; EV.paused = null; EV.extra = 0; }
     }catch(e){ EV.err = e.message; EV.checked = true; }
     finally{ EV.busy = false; }
-    if(before !== [EV.live, EV.name, EV.round, EV.ends, EV.paused, EV.checked, EV.err].join('|')) render();
+    if(before !== [EV.live, EV.name, EV.round, EV.ends, EV.paused, EV.checked, EV.err, EV.extra].join('|')) render();
   }
   function central(){ return EV.live && S.useTour !== false; }
   function waiting(){ return central() && EV.ends === null; }
   function timeLeft(){
     if(central()){
       if(EV.ends === null) return Infinity;
-      if(EV.paused !== null) return EV.paused;
-      return EV.ends - (Date.now() + EV.off);
+      if(EV.paused !== null) return EV.paused + EV.extra * 60000;
+      return EV.ends + EV.extra * 60000 - (Date.now() + EV.off);
     }
     return S.timer.endsAt ? S.timer.endsAt - Date.now() : S.timer.remaining;
+  }
+  function tableField(){
+    return '<label class="evcheck">Tisch-Nr. <input class="tno" type="number" inputmode="numeric" min="1" max="99" data-tno value="' + (S.tableNo || '') + '" aria-label="Tischnummer"></label>';
   }
   function evBox(){
     if(EV.live){
       var st = EV.ends === null ? (EV.round ? 'Runde ' + EV.round + ' ist beendet, die nächste folgt.' : 'Die erste Runde ist noch nicht freigegeben.') : 'Runde ' + EV.round + ' läuft.';
       return '<div class="evbox col"><span><b>' + esc(EV.name) + '</b> läuft gerade. ' + st + '</span>' +
         '<label class="evcheck"><input type="checkbox" data-a="usetour"' + (S.useTour !== false ? ' checked' : '') + '> Rundenzeit von der Turnierleitung übernehmen</label>' +
-        (S.useTour !== false ? '' : '<span class="hint">Für eine freie Partie läuft ein eigener 60-Minuten-Timer.</span>') + '</div>';
+        (S.useTour !== false ? tableField() + (S.tableNo ? '' : '<span class="hint">Mit Tischnummer kann die Turnierleitung deinem Tisch Zusatzzeit geben.</span>') : '<span class="hint">Für eine freie Partie läuft ein eigener 60-Minuten-Timer.</span>') + '</div>';
     }
     return '<div class="evbox col"><span>' + (EV.checked ? (EV.err ? 'Keine Verbindung zum Server. ' : 'Gerade läuft kein Turnier. ') : 'Suche nach einem laufenden Turnier … ') +
-      'Ohne Turnier läuft ein eigener 60-Minuten-Timer ab Spielbeginn.</span></div>';
+      'Ohne Turnier läuft ein eigener 60-Minuten-Timer ab Spielbeginn.</span>' + tableField() + '</div>';
   }
 
   function fmtTime(ms){
@@ -651,7 +660,7 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
       }else{
         var left = timeLeft();
         var paused = central() ? EV.paused !== null : !S.timer.endsAt;
-        bar = undo + '<p>' + (central() ? 'Runde ' + EV.round + ': ' : nameOf(S.starter) + ' hat begonnen. ') + 'Noch <span id="time"' + (left <= 600000 ? ' class="warn"' : '') + '>' + fmtTime(left) + '</span>' +
+        bar = undo + '<p>' + (central() ? (S.tableNo ? 'Tisch ' + S.tableNo + ' · ' : '') + 'Runde ' + EV.round + (EV.extra ? ' (+' + EV.extra + ' Min)' : '') + ': ' : nameOf(S.starter) + ' hat begonnen. ') + 'Noch <span id="time"' + (left <= 600000 ? ' class="warn"' : '') + '>' + fmtTime(left) + '</span>' +
           (paused ? ' (angehalten)' : '') + (central() && EV.synced && Date.now() - EV.synced > 45000 ? ' (offline)' : '') + (S.dayNight ? (S.dayNight === 'day' ? ', Tag' : ', Nacht') : '') + '</p>' + menu;
       }
     }
@@ -823,6 +832,9 @@ td:last-child{font-family:var(--num);font-weight:700;font-size:20px}
     }else if(t && t.hasAttribute && t.hasAttribute('data-cmd')){
       S.cmds[+t.getAttribute('data-cmd')] = t.value;
       save(); cmdTyped(t, +t.getAttribute('data-cmd'), 0);
+    }else if(t && t.hasAttribute && t.hasAttribute('data-tno')){
+      var tn = parseInt(t.value, 10);
+      S.tableNo = (tn >= 1 && tn <= 99) ? tn : null; save();
     }else if(t && t.hasAttribute && t.hasAttribute('data-cmd2')){
       S.cmds2[+t.getAttribute('data-cmd2')] = t.value;
       save(); cmdTyped(t, +t.getAttribute('data-cmd2'), 1);

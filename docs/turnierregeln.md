@@ -91,6 +91,9 @@ Ob mehrere Spieler gleichzeitig ausscheiden, entscheidet der Tisch: Erst alle Sc
 - Als laufendes Turnier gilt das Turnier, dessen Runde die Turnierverwaltung zuletzt gesteuert hat, höchstens 12 Stunden zurück. Es läuft also immer nur ein Turnier gleichzeitig.
 - Zwischen zwei Runden zeigen die Tische „Wartet auf die nächste Runde“. Die nächste Runde startet erst, wenn die Turnierverwaltung sie freigibt.
 - Für eine freie Partie während eines Turniers lässt sich im Zähler die Turnierzeit abschalten.
+- Jeder Tisch trägt im Zähler einmal seine Tischnummer ein. Der Zähler meldet sich damit alle paar Sekunden bei der Turnierverwaltung, mit Status und Spielernamen.
+- Die Turnierverwaltung sieht alle gemeldeten Tische mit ihrer Restzeit und kann einzelnen Tischen Zusatzzeit geben (+1, +3, +5 Minuten) oder wieder abziehen, höchstens 60 Minuten. Das geht auch für einen Tisch, der sich nicht gemeldet hat.
+- Zusatzzeit gilt nur für die laufende Runde und verfällt mit der nächsten Freigabe.
 - Die Turnierverwaltung kann eine Runde pausieren, um 5 Minuten verlängern oder beenden. Die Tische übernehmen das innerhalb weniger Sekunden. Am Tisch selbst lässt sich die Zeit dann nicht anhalten.
 - Ohne Turnier-Code läuft im Zähler ein eigener 60-Minuten-Timer ab Spielbeginn.
 - Nach Ablauf beginnt die Schlussrunde: Der aktive Spieler beendet seinen Zug, danach ist jeder noch lebende Spieler genau einmal dran.

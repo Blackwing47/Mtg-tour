@@ -26,7 +26,7 @@ code{background:var(--surface);border:1px solid var(--line);border-radius:6px;pa
 <body>
 <main>
   <h1>Datenbank-Update</h1>
-  <p>Diese Seite kopiert das Update für die zentrale Rundenfreigabe vollständig in die Zwischenablage.</p>
+  <p>Diese Seite kopiert das neueste Datenbank-Update vollständig in die Zwischenablage.</p>
   <p id="info" class="hint">Wird geladen …</p>
   <button id="copy" disabled>Update kopieren</button>
   <p id="state" role="status"></p>
@@ -38,14 +38,16 @@ code{background:var(--surface);border:1px solid var(--line);border-radius:6px;pa
     <li>Tippe auf „Run“ und bestätige die Warnung.</li>
   </ol>
   <a class="btn" href="https://supabase.com/dashboard/project/bhihuamtmnyguelcmsst/sql/new" target="_blank" rel="noopener">Leeren SQL Editor öffnen</a>
-  <p class="hint">Richtig eingespielt ist es, wenn unten in Supabase „Update für die Rundenfreigabe ist eingespielt“ steht.</p>
+  <p class="hint">Richtig eingespielt ist es, wenn unten in Supabase eine Zeile mit „… ist eingespielt“ steht.</p>
   <p class="hint">Falls das Kopieren nicht klappt: Der Text steht auch hier. Feld antippen, „Alle auswählen“, „Kopieren“.</p>
   <textarea id="sql" readonly aria-label="SQL-Text des Updates"></textarea>
 </main>
 <script>
 (function(){
   var text = '', btn = document.getElementById('copy'), st = document.getElementById('state'), ta = document.getElementById('sql');
-  fetch('../supabase/update-runden.sql', {cache:'no-store'}).then(function(r){
+  var FILES = {runden:'update-runden', tische:'update-tische'}, which = (location.search.match(/datei=(\w+)/) || [])[1];
+  var file = FILES[which] || 'update-tische';
+  fetch('../supabase/' + file + '.sql', {cache:'no-store'}).then(function(r){
     if(!r.ok) throw new Error();
     return r.text();
   }).then(function(t){
